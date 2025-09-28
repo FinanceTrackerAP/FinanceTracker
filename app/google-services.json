@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "594413651770",
+    "project_id": "pepito-7c88b",
+    "storage_bucket": "pepito-7c88b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:594413651770:android:e610b37ad6381ac9307203",
+        "android_client_info": {
+          "package_name": "com.dam.financetracker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAsdAGkCQYIXPZeiL0iWKkBx9gwMA8g-gY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
