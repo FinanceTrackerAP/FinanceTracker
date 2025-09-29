@@ -33,6 +33,11 @@
             android:name=".ui.auth.RegisterActivity"
             android:exported="false" />
 
+        <!-- DashboardActivity -->
+        <activity
+            android:name=".ui.dashboard.DashboardActivity"
+            android:exported="false" />
+
     </application>
 
 </manifest>

@@ -103,7 +103,7 @@
                         android:id="@+id/etFullName"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:hint="Hugo Márquez Diestra"
+                        android:hint="Pedro Orlando"
                         android:inputType="textPersonName"
                         android:maxLines="1" />
 
@@ -185,7 +185,7 @@
                         android:id="@+id/etPassword"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:hint="financetracker_123"
+                        android:hint="123456"
                         android:inputType="textPassword"
                         android:maxLines="1" />
 

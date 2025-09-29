@@ -9,6 +9,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.dam.financetracker.databinding.ActivityLoginBinding
 import com.dam.financetracker.models.AuthResult
+import com.dam.financetracker.ui.dashboard.DashboardActivity
 import com.dam.financetracker.utils.ValidationUtils
 import kotlinx.coroutines.launch
 
@@ -102,6 +103,7 @@ class LoginActivity : AppCompatActivity() {
                         showLoading(false)
                         Toast.makeText(this@LoginActivity, "Bienvenido", Toast.LENGTH_SHORT).show()
                         // TODO: Navegar al Dashboard
+                        startActivity(Intent(this@LoginActivity, DashboardActivity::class.java))
                         finish()
                     }
                     is AuthResult.Error -> {
