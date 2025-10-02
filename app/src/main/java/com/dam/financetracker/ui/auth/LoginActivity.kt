@@ -88,6 +88,8 @@ class LoginActivity : AppCompatActivity() {
 
     private fun loginUser(email: String, password: String) {
         lifecycleScope.launch {
+            // Guardar el email para usarlo en modo local
+            saveUserEmail(email)
             viewModel.loginUser(email, password)
         }
     }
@@ -102,7 +104,6 @@ class LoginActivity : AppCompatActivity() {
                     is AuthResult.Success -> {
                         showLoading(false)
                         Toast.makeText(this@LoginActivity, "Bienvenido", Toast.LENGTH_SHORT).show()
-                        // TODO: Navegar al Dashboard
                         startActivity(Intent(this@LoginActivity, DashboardActivity::class.java))
                         finish()
                     }
@@ -134,5 +135,12 @@ class LoginActivity : AppCompatActivity() {
             viewModel.resetPassword(email)
             Toast.makeText(this@LoginActivity, "Se envió enlace de recuperación a tu email", Toast.LENGTH_LONG).show()
         }
+    }
+    
+    private fun saveUserEmail(email: String) {
+        getSharedPreferences("app_prefs", MODE_PRIVATE)
+            .edit()
+            .putString("user_email", email)
+            .apply()
     }
 }

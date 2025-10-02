@@ -38,6 +38,8 @@ class RegisterActivity : AppCompatActivity() {
                 val password = etPassword.text.toString().trim()
 
                 if (validateRegisterForm(fullName, email, phone, password)) {
+                    // Guardar el email para usarlo en modo local
+                    saveUserEmail(email)
                     registerUser(fullName, email, phone, password)
                 }
             }
@@ -154,5 +156,12 @@ class RegisterActivity : AppCompatActivity() {
                 btnRegister.text = "Crear Cuenta"
             }
         }
+    }
+    
+    private fun saveUserEmail(email: String) {
+        getSharedPreferences("app_prefs", MODE_PRIVATE)
+            .edit()
+            .putString("user_email", email)
+            .apply()
     }
 }

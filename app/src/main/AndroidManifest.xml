@@ -38,6 +38,11 @@
             android:name=".ui.dashboard.DashboardActivity"
             android:exported="false" />
 
+        <!-- TransactionActivity -->
+        <activity
+            android:name=".ui.transaction.TransactionActivity"
+            android:exported="false" />
+
     </application>
 
 </manifest>

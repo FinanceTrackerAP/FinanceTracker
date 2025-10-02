@@ -55,4 +55,32 @@ object ValidationUtils {
             else -> ValidationResult(true)
         }
     }
+
+    // Validaciones para transacciones
+    fun validateAmount(amount: String): ValidationResult {
+        return when {
+            amount.isBlank() -> ValidationResult(false, "El monto es requerido")
+            amount.toDoubleOrNull() == null -> ValidationResult(false, "Ingresa un monto válido")
+            amount.toDouble() <= 0 -> ValidationResult(false, "El monto debe ser mayor a 0")
+            amount.toDouble() > 999999999.99 -> ValidationResult(false, "El monto es demasiado grande")
+            else -> ValidationResult(true)
+        }
+    }
+
+    fun validateTransactionDescription(description: String): ValidationResult {
+        return when {
+            description.isBlank() -> ValidationResult(false, "La descripción es requerida")
+            description.length < 3 -> ValidationResult(false, "La descripción debe tener al menos 3 caracteres")
+            description.length > 200 -> ValidationResult(false, "La descripción es demasiado larga (máximo 200 caracteres)")
+            else -> ValidationResult(true)
+        }
+    }
+
+    fun validateCategory(category: String): ValidationResult {
+        return when {
+            category.isBlank() -> ValidationResult(false, "La categoría es requerida")
+            category.length < 2 -> ValidationResult(false, "La categoría debe tener al menos 2 caracteres")
+            else -> ValidationResult(true)
+        }
+    }
 }

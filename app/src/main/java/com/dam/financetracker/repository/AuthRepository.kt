@@ -67,7 +67,18 @@ class AuthRepository {
                 .get()
                 .await()
 
-            val user = userDoc.toObject(User::class.java) ?: throw Exception("Usuario no encontrado")
+            val user = try {
+                userDoc.toObject(User::class.java) ?: throw Exception("Usuario no encontrado")
+            } catch (e: Exception) {
+                // Si hay error en el mapeo, crear usuario con datos básicos
+                User(
+                    uid = firebaseUser.uid,
+                    email = firebaseUser.email ?: email,
+                    businessId = userDoc.getString("businessId") ?: "",
+                    role = UserRole.OWNER,
+                    isActive = true
+                )
+            }
 
             AuthResult.Success(user)
 
@@ -90,21 +101,36 @@ class AuthRepository {
         return firebaseAuth.currentUser != null
     }
 
-    fun getCurrentUser(): Flow<User?> = flow {
-        val firebaseUser = firebaseAuth.currentUser
-        if (firebaseUser != null) {
-            try {
-                val userDoc = firestore.collection("users")
-                    .document(firebaseUser.uid)
-                    .get()
-                    .await()
+    suspend fun getCurrentUser(): User? {
+        val firebaseUser = firebaseAuth.currentUser ?: return null
 
-                emit(userDoc.toObject(User::class.java))
+        return try {
+            val userDoc = firestore.collection("users")
+                .document(firebaseUser.uid)
+                .get()
+                .await()
+
+            try {
+                userDoc.toObject(User::class.java)
             } catch (e: Exception) {
-                emit(null)
+                // Si hay error en el mapeo, crear usuario con datos básicos
+                User(
+                    uid = firebaseUser.uid,
+                    email = firebaseUser.email ?: "",
+                    businessId = userDoc.getString("businessId") ?: "",
+                    role = UserRole.OWNER,
+                    isActive = true
+                )
             }
-        } else {
-            emit(null)
+        } catch (e: Exception) {
+            // Si hay error al obtener el documento, crear usuario básico con lo que tenemos
+            User(
+                uid = firebaseUser.uid,
+                email = firebaseUser.email ?: "",
+                businessId = "",
+                role = UserRole.OWNER,
+                isActive = true
+            )
         }
     }
 
