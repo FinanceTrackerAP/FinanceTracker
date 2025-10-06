@@ -8,120 +8,125 @@ import com.dam.financetracker.models.ValidationResult
 import com.dam.financetracker.repository.AuthRepository
 import com.dam.financetracker.repository.TransactionRepository
 import com.dam.financetracker.utils.ValidationUtils
+import kotlinx.coroutines.delay // <- para simular tiempo de respuesta de IA
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 class TransactionViewModel : ViewModel() {
-    
+
     private val transactionRepository = TransactionRepository()
     private val authRepository = AuthRepository()
-    
+
     // Estados del formulario
     private val _transactionType = MutableStateFlow(TransactionType.INCOME)
     val transactionType: StateFlow<TransactionType> = _transactionType.asStateFlow()
-    
+
     private val _amount = MutableStateFlow("")
     val amount: StateFlow<String> = _amount.asStateFlow()
-    
+
     private val _description = MutableStateFlow("")
     val description: StateFlow<String> = _description.asStateFlow()
-    
+
     private val _category = MutableStateFlow("")
     val category: StateFlow<String> = _category.asStateFlow()
-    
+
     private val _selectedDate = MutableStateFlow(System.currentTimeMillis())
     val selectedDate: StateFlow<Long> = _selectedDate.asStateFlow()
-    
+
     // Estados de validación
     private val _amountError = MutableStateFlow<String?>(null)
     val amountError: StateFlow<String?> = _amountError.asStateFlow()
-    
+
     private val _descriptionError = MutableStateFlow<String?>(null)
     val descriptionError: StateFlow<String?> = _descriptionError.asStateFlow()
-    
+
     private val _categoryError = MutableStateFlow<String?>(null)
     val categoryError: StateFlow<String?> = _categoryError.asStateFlow()
-    
+
     // Estados de UI
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
-    
+
     private val _operationResult = MutableSharedFlow<Result<String>>()
     val operationResult: SharedFlow<Result<String>> = _operationResult.asSharedFlow()
-    
+
     private val _transactions = MutableStateFlow<List<Transaction>>(emptyList())
     val transactions: StateFlow<List<Transaction>> = _transactions.asStateFlow()
-    
+
     private val _balance = MutableStateFlow(0.0)
     val balance: StateFlow<Double> = _balance.asStateFlow()
-    
+
     // Transacción en edición
     private val _editingTransaction = MutableStateFlow<Transaction?>(null)
     val editingTransaction: StateFlow<Transaction?> = _editingTransaction.asStateFlow()
-    
+
     private val _isEditMode = MutableStateFlow(false)
     val isEditMode: StateFlow<Boolean> = _isEditMode.asStateFlow()
-    
+
+    // NUEVO: Estado para sugerencia de categoría (HU-003: 3)
+    private val _suggestedCategory = MutableStateFlow<String?>(null)
+    val suggestedCategory: StateFlow<String?> = _suggestedCategory.asStateFlow()
+
     // Job para manejar la suscripción a transacciones
     private var transactionsJob: kotlinx.coroutines.Job? = null
-    
+
     init {
         // Cargar transacciones de forma segura
         safeLoadTransactions()
     }
-    
+
     fun setTransactionType(type: TransactionType) {
         _transactionType.value = type
         clearErrors()
     }
-    
+
     fun setAmount(amount: String) {
         _amount.value = amount
         validateAmount()
     }
-    
+
     fun setDescription(description: String) {
         _description.value = description
         validateDescription()
     }
-    
+
     fun setCategory(category: String) {
         _category.value = category
         validateCategory()
     }
-    
+
     fun setSelectedDate(date: Long) {
         _selectedDate.value = date
     }
-    
+
     fun loadTransactionForEdit(transaction: Transaction) {
         _editingTransaction.value = transaction
         _isEditMode.value = true
-        
+
         // Cargar datos en el formulario
         _transactionType.value = transaction.type
         _amount.value = transaction.amount.toString()
         _description.value = transaction.description
         _category.value = transaction.category
         _selectedDate.value = transaction.date
-        
+
         clearErrors()
     }
-    
+
     fun clearEditMode() {
         _editingTransaction.value = null
         _isEditMode.value = false
         // No llamar clearForm() aquí para evitar ciclo infinito
     }
-    
+
     fun saveTransaction() {
         if (!validateForm()) {
             return
         }
-        
+
         viewModelScope.launch {
             _isLoading.value = true
-            
+
             try {
                 val user = authRepository.getCurrentUser()
                 if (user == null) {
@@ -129,9 +134,9 @@ class TransactionViewModel : ViewModel() {
                     _isLoading.value = false
                     return@launch
                 }
-                
+
                 val amountDouble = _amount.value.toDoubleOrNull() ?: 0.0
-                
+
                 if (_isEditMode.value) {
                     // Actualizar transacción existente
                     val updatedTransaction = _editingTransaction.value?.copy(
@@ -141,7 +146,7 @@ class TransactionViewModel : ViewModel() {
                         category = _category.value.trim(),
                         date = _selectedDate.value
                     )
-                    
+
                     if (updatedTransaction != null) {
                         val result = transactionRepository.updateTransaction(updatedTransaction)
                         if (result.isSuccess) {
@@ -156,14 +161,15 @@ class TransactionViewModel : ViewModel() {
                 } else {
                     // Crear nueva transacción
                     // Si el usuario no tiene businessId, usar su uid como businessId por defecto
-                    val businessId = if (user.businessId.isNotEmpty()) {
-                        user.businessId
+                    val userObj = user
+                    val businessId = if (userObj.businessId.isNotEmpty()) {
+                        userObj.businessId
                     } else {
-                        user.uid
+                        userObj.uid
                     }
-                    
-                    println("DEBUG: Creando transacción - UserId: ${user.uid}, BusinessId: $businessId")
-                    
+
+                    println("DEBUG: Creando transacción - UserId: ${userObj.uid}, BusinessId: $businessId")
+
                     val transaction = Transaction(
                         businessId = businessId,
                         type = _transactionType.value,
@@ -172,11 +178,11 @@ class TransactionViewModel : ViewModel() {
                         category = _category.value.trim(),
                         date = _selectedDate.value
                     )
-                    
+
                     println("DEBUG: Transaction creada: $transaction")
-                    
+
                     val result = transactionRepository.createTransaction(transaction)
-                    
+
                     println("DEBUG: Resultado de createTransaction: ${result.isSuccess}")
                     if (result.isSuccess) {
                         println("DEBUG: ✅ Transacción guardada exitosamente")
@@ -189,7 +195,7 @@ class TransactionViewModel : ViewModel() {
                         _operationResult.emit(Result.failure(Exception(errorMessage)))
                     }
                 }
-                
+
             } catch (e: Exception) {
                 val errorMessage = e.message ?: "Error desconocido"
                 println("DEBUG: ❌ Exception en saveTransaction: $errorMessage")
@@ -200,11 +206,11 @@ class TransactionViewModel : ViewModel() {
             }
         }
     }
-    
+
     fun deleteTransaction(transactionId: String) {
         viewModelScope.launch {
             _isLoading.value = true
-            
+
             try {
                 val result = transactionRepository.deleteTransaction(transactionId)
                 if (result.isSuccess) {
@@ -214,7 +220,7 @@ class TransactionViewModel : ViewModel() {
                     val errorMessage = result.exceptionOrNull()?.message ?: "Error al eliminar"
                     _operationResult.emit(Result.failure(Exception(errorMessage)))
                 }
-                
+
             } catch (e: Exception) {
                 val errorMessage = e.message ?: "Error desconocido"
                 _operationResult.emit(Result.failure(Exception(errorMessage)))
@@ -223,21 +229,21 @@ class TransactionViewModel : ViewModel() {
             }
         }
     }
-    
+
     private fun loadTransactions() {
         // Método obsoleto - usar safeLoadTransactions() en su lugar
     }
-    
+
     private fun safeLoadTransactions() {
         // Cancelar job anterior si existe
         transactionsJob?.cancel()
-        
+
         transactionsJob = viewModelScope.launch {
             try {
                 println("DEBUG Dashboard: Cargando transacciones...")
                 val user = authRepository.getCurrentUser()
                 println("DEBUG Dashboard: Usuario obtenido: ${user?.email}, businessId: ${user?.businessId}")
-                
+
                 if (user != null) {
                     // Si el usuario no tiene businessId, usar su uid como businessId por defecto
                     val businessId = if (user.businessId.isNotEmpty()) {
@@ -245,18 +251,18 @@ class TransactionViewModel : ViewModel() {
                     } else {
                         user.uid
                     }
-                    
+
                     println("DEBUG Dashboard: BusinessId a usar: $businessId")
-                    
+
                     // Cargar una sola vez sin collect para evitar crashes
                     val transactions = transactionRepository.getTransactionsByBusinessOnce(businessId)
                     println("DEBUG Dashboard: Transacciones cargadas: ${transactions.size}")
-                    transactions.forEach { 
+                    transactions.forEach {
                         println("DEBUG Dashboard: - ${it.description}: ${it.amount} (${it.type})")
                     }
-                    
+
                     _transactions.value = transactions
-                    
+
                     // Calcular balance directamente de las transacciones cargadas
                     var balance = 0.0
                     transactions.forEach { transaction ->
@@ -266,7 +272,7 @@ class TransactionViewModel : ViewModel() {
                         }
                     }
                     _balance.value = balance
-                    
+
                     println("DEBUG Dashboard: Balance calculado: ${_balance.value}")
                 } else {
                     println("DEBUG Dashboard: Usuario es null")
@@ -280,16 +286,16 @@ class TransactionViewModel : ViewModel() {
             }
         }
     }
-    
+
     fun refreshTransactions() {
         safeLoadTransactions()
     }
-    
+
     override fun onCleared() {
         super.onCleared()
         transactionsJob?.cancel()
     }
-    
+
     private suspend fun calculateBalance(businessId: String) {
         try {
             val result = transactionRepository.getBalanceByBusiness(businessId)
@@ -300,48 +306,97 @@ class TransactionViewModel : ViewModel() {
             _balance.value = 0.0
         }
     }
-    
+
     private fun validateForm(): Boolean {
         val isAmountValid = validateAmount()
         val isDescriptionValid = validateDescription()
         val isCategoryValid = validateCategory()
-        
+
         return isAmountValid && isDescriptionValid && isCategoryValid
     }
-    
+
     private fun validateAmount(): Boolean {
         val validation = ValidationUtils.validateAmount(_amount.value)
         _amountError.value = if (validation.isValid) null else validation.errorMessage
         return validation.isValid
     }
-    
+
     private fun validateDescription(): Boolean {
         val validation = ValidationUtils.validateTransactionDescription(_description.value)
         _descriptionError.value = if (validation.isValid) null else validation.errorMessage
         return validation.isValid
     }
-    
+
     private fun validateCategory(): Boolean {
         val validation = ValidationUtils.validateCategory(_category.value)
         _categoryError.value = if (validation.isValid) null else validation.errorMessage
         return validation.isValid
     }
-    
+
     private fun clearErrors() {
         _amountError.value = null
         _descriptionError.value = null
         _categoryError.value = null
     }
-    
+
     private fun clearForm() {
         _amount.value = ""
         _description.value = ""
         _category.value = ""
         _selectedDate.value = System.currentTimeMillis()
+        _suggestedCategory.value = null // <- limpiar sugerencia al limpiar formulario
         clearErrors()
         // Limpiar modo de edición sin llamar clearForm() de nuevo
         _editingTransaction.value = null
         _isEditMode.value = false
     }
-}
 
+    // ============================
+    // Sugerencia de categoría (HU-003: 3)
+    // ============================
+
+    /**
+     * Solicita una sugerencia de categoría en base a la descripción y el tipo de transacción.
+     * Simula una latencia de red/IA con delay(500).
+     */
+    fun requestCategorySuggestion() {
+        viewModelScope.launch {
+            val descriptionText = _description.value.trim().lowercase()
+            val type = _transactionType.value
+
+            if (descriptionText.length < 5) {
+                _suggestedCategory.value = null
+                return@launch
+            }
+
+            _suggestedCategory.value = "Cargando sugerencia..."
+            delay(500) // Simulación de llamada a IA/servicio
+
+            val suggestion = when (type) {
+                TransactionType.INCOME -> suggestIncomeCategory(descriptionText)
+                TransactionType.EXPENSE -> suggestExpenseCategory(descriptionText)
+            }
+
+            _suggestedCategory.value = suggestion
+        }
+    }
+
+    // Heurística simple basada en palabras clave (mock)
+    private fun suggestIncomeCategory(description: String): String? =
+        when {
+            description.contains("pago cliente") || description.contains("venta") -> "Ventas"
+            description.contains("servicio") || description.contains("consultoría") -> "Servicios"
+            description.contains("alquiler") || description.contains("renta") -> "Ingresos por alquiler"
+            else -> null
+        }
+
+    private fun suggestExpenseCategory(description: String): String? =
+        when {
+            description.contains("alquiler") || description.contains("renta local") -> "Alquiler"
+            description.contains("publicidad") || description.contains("marketing") -> "Marketing y publicidad"
+            description.contains("electricidad") || description.contains("agua") || description.contains("internet") -> "Servicios públicos"
+            description.contains("transporte") || description.contains("gasolina") -> "Transporte"
+            description.contains("comida") || description.contains("restaurante") -> "Alimentación"
+            else -> null
+        }
+}

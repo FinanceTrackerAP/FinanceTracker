@@ -30,7 +30,9 @@ data class TransactionCategory(
     val id: String = "",
     val name: String = "",
     val type: TransactionType = TransactionType.INCOME,
-    val isDefault: Boolean = false
+    val isDefault: Boolean = false,
+    val userId: String = "" // <<--- ESTO ES VITAL
+
 )
 
 // Categorías por defecto para ingresos

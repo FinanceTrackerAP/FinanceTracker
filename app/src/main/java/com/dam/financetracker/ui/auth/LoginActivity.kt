@@ -136,7 +136,7 @@ class LoginActivity : AppCompatActivity() {
             Toast.makeText(this@LoginActivity, "Se envió enlace de recuperación a tu email", Toast.LENGTH_LONG).show()
         }
     }
-    
+
     private fun saveUserEmail(email: String) {
         getSharedPreferences("app_prefs", MODE_PRIVATE)
             .edit()

@@ -157,7 +157,7 @@ class RegisterActivity : AppCompatActivity() {
             }
         }
     }
-    
+
     private fun saveUserEmail(email: String) {
         getSharedPreferences("app_prefs", MODE_PRIVATE)
             .edit()

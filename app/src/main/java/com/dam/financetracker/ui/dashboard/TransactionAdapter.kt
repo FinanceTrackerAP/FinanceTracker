@@ -17,10 +17,10 @@ import java.util.*
 class TransactionAdapter(
     private val onTransactionClick: (Transaction) -> Unit
 ) : ListAdapter<Transaction, TransactionAdapter.TransactionViewHolder>(TransactionDiffCallback()) {
-    
+
     private val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
     private val currencyFormat = NumberFormat.getCurrencyInstance(Locale("es", "PE"))
-    
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TransactionViewHolder {
         val binding = ItemTransactionBinding.inflate(
             LayoutInflater.from(parent.context),
@@ -29,22 +29,22 @@ class TransactionAdapter(
         )
         return TransactionViewHolder(binding)
     }
-    
+
     override fun onBindViewHolder(holder: TransactionViewHolder, position: Int) {
         holder.bind(getItem(position))
     }
-    
+
     inner class TransactionViewHolder(
         private val binding: ItemTransactionBinding
     ) : RecyclerView.ViewHolder(binding.root) {
-        
+
         fun bind(transaction: Transaction) {
             binding.apply {
                 // Configurar información básica
                 tvDescription.text = transaction.description
                 tvCategory.text = transaction.category
                 tvDate.text = dateFormat.format(Date(transaction.date))
-                
+
                 // Configurar monto y colores según el tipo
                 when (transaction.type) {
                     TransactionType.INCOME -> {
@@ -66,7 +66,7 @@ class TransactionAdapter(
                         )
                     }
                 }
-                
+
                 // Configurar click listener
                 root.setOnClickListener {
                     onTransactionClick(transaction)
@@ -74,12 +74,12 @@ class TransactionAdapter(
             }
         }
     }
-    
+
     class TransactionDiffCallback : DiffUtil.ItemCallback<Transaction>() {
         override fun areItemsTheSame(oldItem: Transaction, newItem: Transaction): Boolean {
             return oldItem.id == newItem.id
         }
-        
+
         override fun areContentsTheSame(oldItem: Transaction, newItem: Transaction): Boolean {
             return oldItem == newItem
         }

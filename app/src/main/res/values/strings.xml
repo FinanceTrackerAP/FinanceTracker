@@ -1,3 +1,28 @@
 <resources>
     <string name="app_name">FinanceTracker</string>
+
+    <!-- Strings para Settings/Perfil (HU-003) -->
+    <string name="settings_title">Configuración de Cuenta</string>
+    <string name="settings_profile_section">Perfil y Negocio</string>
+    <string name="settings_business_id">ID Negocio: %s</string>
+    <string name="settings_edit_profile">Editar Perfil</string>
+    <string name="settings_data_management_section">Gestión de Datos</string>
+    <string name="settings_manage_categories">Administrar Categorías</string>
+    <string name="settings_go_to_categories">Ir a categorías</string>
+    <string name="settings_security_section">Seguridad</string>
+    <string name="settings_logout">Cerrar Sesión</string>
+
+    <!-- Mensajes de errores y estados -->
+    <string name="error_session">Error de sesión</string>
+    <string name="error_login_prompt">Por favor, vuelve a iniciar sesión</string>
+    <string name="session_closed_message">Sesión cerrada</string>
+    <string name="feature_in_development">Funcionalidad en desarrollo</string>
+    <string name="error_loading_profile">Error al cargar datos de perfil</string>
+
+    <!-- Strings para Categorías -->
+    <string name="category_management_title">Administrar Categorías</string>
+    <string name="category_hu_title">Gestión de Categorías (HU-003)</string>
+    <string name="category_hu_description">Aquí se implementará la creación de nuevas categorías personalizadas y la administración de las existentes (Paso 1 y 2 de HU-003).</string>
+    <string name="category_add_custom">Añadir Categoría Personalizada</string>
+
 </resources>

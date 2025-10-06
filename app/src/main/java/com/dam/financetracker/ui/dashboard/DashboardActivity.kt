@@ -12,21 +12,23 @@ import com.dam.financetracker.models.Transaction
 import com.dam.financetracker.models.TransactionType
 import com.dam.financetracker.repository.AuthRepository
 import com.dam.financetracker.ui.auth.LoginActivity
+import com.dam.financetracker.ui.settings.SettingsActivity   // <-- NUEVO
 import com.dam.financetracker.ui.transaction.TransactionActivity
 import com.dam.financetracker.ui.transaction.TransactionViewModel
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
-import java.util.*
+import java.util.Locale
 
 class DashboardActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityDashboardBinding
     private val authRepository = AuthRepository()
-    // Usar TransactionViewModel para conectar con Firebase
+
+    // Usar TransactionViewModel para conectar con
     private val transactionViewModel: TransactionViewModel by viewModels()
-    // private val transactionViewModel: LocalTransactionViewModel by viewModels()
+
     private lateinit var transactionAdapter: TransactionAdapter
-    
+
     private val currencyFormat = NumberFormat.getCurrencyInstance(Locale("es", "PE"))
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,23 +44,23 @@ class DashboardActivity : AppCompatActivity() {
         loadUserInfo()
         setupViews()
         setupObservers()
-        
+
         // Cargar transacciones al iniciar
         transactionViewModel.refreshTransactions()
     }
-    
+
     private fun setupRecyclerView() {
         transactionAdapter = TransactionAdapter { transaction ->
             openTransactionForEdit(transaction)
         }
-        
+
         binding.rvTransactions.apply {
             adapter = transactionAdapter
             layoutManager = LinearLayoutManager(this@DashboardActivity)
         }
     }
-    
-    private fun loadUserInfo(){
+
+    private fun loadUserInfo() {
         lifecycleScope.launch {
             try {
                 val user = authRepository.getCurrentUser()
@@ -73,7 +75,7 @@ class DashboardActivity : AppCompatActivity() {
                     val savedEmail = getSavedUserEmail()
                     binding.tvEmail.text = savedEmail
                 }
-            } catch (e: Exception){
+            } catch (e: Exception) {
                 // En caso de error, mostrar el email guardado o uno por defecto
                 binding.tvWelcome.text = "Bienvenido"
                 val savedEmail = getSavedUserEmail()
@@ -81,19 +83,19 @@ class DashboardActivity : AppCompatActivity() {
             }
         }
     }
-    
+
     private fun saveUserEmail(email: String) {
         getSharedPreferences("app_prefs", MODE_PRIVATE)
             .edit()
             .putString("user_email", email)
             .apply()
     }
-    
+
     private fun getSavedUserEmail(): String {
         return getSharedPreferences("app_prefs", MODE_PRIVATE)
             .getString("user_email", "demo@financetracker.com") ?: "demo@financetracker.com"
     }
-    
+
     private fun setupDemoUserIfNeeded() {
         // Si no hay email guardado, configurar uno de demo para testing local
         val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
@@ -101,36 +103,37 @@ class DashboardActivity : AppCompatActivity() {
             saveUserEmail("demo@financetracker.com")
         }
     }
-    
+
     private fun setupViews() {
-        binding.btnLogout.setOnClickListener {
-            authRepository.signOut()
-            startActivity(Intent(this, LoginActivity::class.java))
-            finish()
+        // NUEVO: botón de configuración en el header (ImageButton)
+        binding.btnSettings.setOnClickListener {
+            // Navega a la pantalla de Configuración / Perfil
+            startActivity(Intent(this, SettingsActivity::class.java))
         }
-        
+
         binding.btnAddIncome.setOnClickListener {
             openTransactionActivity(TransactionType.INCOME)
         }
-        
+
         binding.btnAddExpense.setOnClickListener {
             openTransactionActivity(TransactionType.EXPENSE)
         }
-        
+
         binding.btnAddFirstTransaction.setOnClickListener {
             openTransactionActivity(TransactionType.INCOME)
         }
-        
+
         binding.tvViewAll.setOnClickListener {
             // TODO: Abrir actividad con todas las transacciones
         }
     }
-    
+
     private fun setupObservers() {
         lifecycleScope.launch {
             transactionViewModel.transactions.collect { transactions ->
-                transactionAdapter.submitList(transactions.take(5)) // Mostrar solo las últimas 5
-                
+                // Mostrar solo las últimas 5 en el dashboard
+                transactionAdapter.submitList(transactions.take(5))
+
                 if (transactions.isEmpty()) {
                     binding.layoutEmptyState.visibility = View.VISIBLE
                     binding.rvTransactions.visibility = View.GONE
@@ -140,29 +143,36 @@ class DashboardActivity : AppCompatActivity() {
                 }
             }
         }
-        
+
         lifecycleScope.launch {
             transactionViewModel.balance.collect { balance ->
                 binding.tvBalance.text = currencyFormat.format(balance)
             }
         }
     }
-    
+
     private fun openTransactionActivity(type: TransactionType) {
         val intent = Intent(this, TransactionActivity::class.java)
         intent.putExtra(TransactionActivity.EXTRA_TRANSACTION_TYPE, type.name)
         startActivity(intent)
     }
-    
+
     private fun openTransactionForEdit(transaction: Transaction) {
         val intent = Intent(this, TransactionActivity::class.java)
         intent.putExtra(TransactionActivity.EXTRA_TRANSACTION, transaction)
         startActivity(intent)
     }
-    
+
     override fun onResume() {
         super.onResume()
         // Recargar transacciones cuando se vuelve a esta actividad
         transactionViewModel.refreshTransactions()
+    }
+
+    // Opcional: si decides cerrar sesión desde SettingsActivity y vuelves aquí,
+    // puedes llamar a este helper para redirigir al login.
+    private fun goToLoginAndFinish() {
+        startActivity(Intent(this, LoginActivity::class.java))
+        finish()
     }
 }
