@@ -7,6 +7,8 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.dam.financetracker.databinding.ActivityDashboardBinding
 import com.dam.financetracker.models.Transaction
 import com.dam.financetracker.models.TransactionType
@@ -35,6 +37,15 @@ class DashboardActivity : AppCompatActivity() {
         binding = ActivityDashboardBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // Título TopBar
+        binding.topBar.tvTitle.text = "General"
+        // Evitar superposición con la barra de estado
+        ViewCompat.setOnApplyWindowInsetsListener(binding.topBar.root) { v, insets ->
+            val top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+            v.setPadding(v.paddingLeft, top, v.paddingRight, v.paddingBottom)
+            insets
+        }
+        
         // En modo local, configurar un email de demo si no hay uno guardado
         setupDemoUserIfNeeded()
 
@@ -42,9 +53,25 @@ class DashboardActivity : AppCompatActivity() {
         loadUserInfo()
         setupViews()
         setupObservers()
+        setupBottomNavigation()
         
         // Cargar transacciones al iniciar
         transactionViewModel.refreshTransactions()
+    }
+    
+    private fun setupBottomNavigation() {
+        // Seleccionar Inicio por defecto
+        binding.bottomNavigation.root.selectedItemId = com.dam.financetracker.R.id.nav_home
+        binding.bottomNavigation.root.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                com.dam.financetracker.R.id.nav_transactions -> {
+                    openTransactionActivity(com.dam.financetracker.models.TransactionType.INCOME)
+                    true
+                }
+                com.dam.financetracker.R.id.nav_home -> true
+                else -> true
+            }
+        }
     }
     
     private fun setupRecyclerView() {
@@ -109,12 +136,8 @@ class DashboardActivity : AppCompatActivity() {
             finish()
         }
         
-        binding.btnAddIncome.setOnClickListener {
+        binding.btnAddTransaction.setOnClickListener {
             openTransactionActivity(TransactionType.INCOME)
-        }
-        
-        binding.btnAddExpense.setOnClickListener {
-            openTransactionActivity(TransactionType.EXPENSE)
         }
         
         binding.btnAddFirstTransaction.setOnClickListener {
@@ -162,6 +185,8 @@ class DashboardActivity : AppCompatActivity() {
     
     override fun onResume() {
         super.onResume()
+        // Asegurar que Home quede seleccionado al volver a esta pantalla
+        binding.bottomNavigation.root.selectedItemId = com.dam.financetracker.R.id.nav_home
         // Recargar transacciones cuando se vuelve a esta actividad
         transactionViewModel.refreshTransactions()
     }

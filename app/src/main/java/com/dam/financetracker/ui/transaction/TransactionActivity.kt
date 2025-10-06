@@ -9,6 +9,8 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.addTextChangedListener
 import androidx.lifecycle.lifecycleScope
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.dam.financetracker.R
 import com.dam.financetracker.databinding.ActivityTransactionBinding
 import com.dam.financetracker.models.DefaultExpenseCategories
@@ -44,16 +46,21 @@ class TransactionActivity : AppCompatActivity() {
         setupViews()
         setupObservers()
         handleIntent()
+        setupBottomNavigation()
+        // Evitar superposición con la barra de estado
+        ViewCompat.setOnApplyWindowInsetsListener(binding.topBar.root) { v, insets ->
+            val top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+            v.setPadding(v.paddingLeft, top, v.paddingRight, v.paddingBottom)
+            insets
+        }
     }
     
     private fun setupViews() {
-        // Configurar toolbar
-        binding.toolbar.setNavigationOnClickListener {
-            finish()
-        }
+        // Configurar top bar título
+        binding.topBar.tvTitle.text = "Transacciones"
         
-        // Configurar selector de tipo de transacción
-        setupTypeSpinner()
+        // Configurar selector de tipo con botones
+        setupTypeToggle()
         
         // Configurar listeners de texto
         binding.etAmount.addTextChangedListener {
@@ -69,13 +76,9 @@ class TransactionActivity : AppCompatActivity() {
             showDatePicker()
         }
         
-        // Configurar botones
+        // Configurar botón guardar
         binding.btnSave.setOnClickListener {
             viewModel.saveTransaction()
-        }
-        
-        binding.btnCancel.setOnClickListener {
-            finish()
         }
         
         // Configurar spinner de categorías por defecto
@@ -89,16 +92,12 @@ class TransactionActivity : AppCompatActivity() {
         lifecycleScope.launch {
             // Observar tipo de transacción
             viewModel.transactionType.collect { type ->
-                when (type) {
-                    TransactionType.INCOME -> {
-                        binding.spinnerType.setText("Ingreso", false)
-                    }
-                    TransactionType.EXPENSE -> {
-                        binding.spinnerType.setText("Gasto", false)
-                    }
-                }
+                // Actualiza estilos de botones
+                updateToggleStyles(type)
                 setupCategorySpinner(type)
                 updateTitle() // Actualizar título cuando cambie el tipo
+                // Actualizar texto del botón principal
+                binding.btnSave.text = if (type == TransactionType.INCOME) "Guardar Ingreso" else "Guardar Gasto"
             }
         }
         
@@ -159,7 +158,6 @@ class TransactionActivity : AppCompatActivity() {
             viewModel.isLoading.collect { isLoading ->
                 binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
                 binding.btnSave.isEnabled = !isLoading
-                binding.btnCancel.isEnabled = !isLoading
             }
         }
         
@@ -248,24 +246,30 @@ class TransactionActivity : AppCompatActivity() {
         binding.etDate.setText(dateFormat.format(Date(timestamp)))
     }
     
-    private fun setupTypeSpinner() {
-        val types = arrayOf("Ingreso", "Gasto")
-        val adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, types)
-        binding.spinnerType.setAdapter(adapter)
-        
-        // Configurar listener para selección
-        binding.spinnerType.setOnItemClickListener { _, _, position, _ ->
-            val selectedType = when (position) {
-                0 -> TransactionType.INCOME
-                1 -> TransactionType.EXPENSE
-                else -> TransactionType.INCOME
-            }
-            viewModel.setTransactionType(selectedType)
+    private fun setupTypeToggle() {
+        binding.btnIncome.setOnClickListener {
+            viewModel.setTransactionType(TransactionType.INCOME)
         }
-        
-        // Establecer valor por defecto
-        binding.spinnerType.setText("Ingreso", false)
+        binding.btnExpense.setOnClickListener {
+            viewModel.setTransactionType(TransactionType.EXPENSE)
+        }
+        updateToggleStyles(TransactionType.INCOME)
         viewModel.setTransactionType(TransactionType.INCOME)
+    }
+
+    private fun updateToggleStyles(type: TransactionType) {
+        val incomeSelected = type == TransactionType.INCOME
+        if (incomeSelected) {
+            binding.btnIncome.backgroundTintList = getColorStateList(R.color.success_green)
+            binding.btnIncome.setTextColor(getColor(R.color.white))
+            binding.btnExpense.backgroundTintList = getColorStateList(android.R.color.transparent)
+            binding.btnExpense.setTextColor(getColor(R.color.primary_text))
+        } else {
+            binding.btnIncome.backgroundTintList = getColorStateList(android.R.color.transparent)
+            binding.btnIncome.setTextColor(getColor(R.color.primary_text))
+            binding.btnExpense.backgroundTintList = getColorStateList(R.color.error_red)
+            binding.btnExpense.setTextColor(getColor(R.color.white))
+        }
     }
     
     private fun updateTitle() {
@@ -279,6 +283,20 @@ class TransactionActivity : AppCompatActivity() {
                 !isEditMode && transactionType == TransactionType.INCOME -> "Registrar Ingreso"
                 !isEditMode && transactionType == TransactionType.EXPENSE -> "Registrar Gasto"
                 else -> "Nueva Transacción"
+            }
+        }
+    }
+    
+    private fun setupBottomNavigation() {
+        // Mantener seleccionado el tab de Transacciones
+        binding.bottomNavigation.root.selectedItemId = com.dam.financetracker.R.id.nav_transactions
+        binding.bottomNavigation.root.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                com.dam.financetracker.R.id.nav_home -> {
+                    finish() // volver a dashboard
+                    true
+                }
+                else -> true
             }
         }
     }

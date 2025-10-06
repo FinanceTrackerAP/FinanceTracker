@@ -8,13 +8,18 @@
     android:background="@color/white"
     tools:context=".ui.dashboard.DashboardActivity">
 
+    <!-- TopBar -->
+    <include
+        android:id="@+id/topBar"
+        layout="@layout/top_bar" />
+
     <!-- Header -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@drawable/gradient_purple_header"
         android:orientation="vertical"
-        android:padding="24dp">
+        android:padding="16dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -66,7 +71,7 @@
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="12dp"
             app:cardCornerRadius="12dp"
             app:cardElevation="4dp"
             android:backgroundTint="@color/white">
@@ -84,15 +89,34 @@
                     android:textColor="@color/secondary_text"
                     android:textSize="14sp" />
 
-                <TextView
-                    android:id="@+id/tvBalance"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="S/ 0.00"
-                    android:textColor="@color/primary_text"
-                    android:textSize="28sp"
-                    android:textStyle="bold" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:id="@+id/tvBalance"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginTop="8dp"
+                        android:text="S/ 0.00"
+                        android:textColor="@color/primary_text"
+                        android:textSize="28sp"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.floatingactionbutton.FloatingActionButton
+                        android:id="@+id/btnAddTransaction"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:contentDescription="Agregar transacción"
+                        app:tint="@color/white"
+                        app:maxImageSize="24dp"
+                        app:srcCompat="@drawable/ic_add"
+                        app:backgroundTint="@color/primary_purple" />
+
+                </LinearLayout>
 
             </LinearLayout>
 
@@ -100,38 +124,10 @@
 
     </LinearLayout>
 
-    <!-- Action Buttons -->
-    <LinearLayout
+    <!-- Bottom space before list -->
+    <Space
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="16dp">
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnAddIncome"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginEnd="8dp"
-            android:text="+ Ingreso"
-            android:textColor="@color/white"
-            android:backgroundTint="@color/success_green"
-            app:icon="@drawable/ic_add"
-            app:iconTint="@color/white" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnAddExpense"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginStart="8dp"
-            android:text="+ Gasto"
-            android:textColor="@color/white"
-            android:backgroundTint="@color/error_red"
-            app:icon="@drawable/ic_add"
-            app:iconTint="@color/white" />
-
-    </LinearLayout>
+        android:layout_height="8dp" />
 
     <!-- Transactions Section -->
     <LinearLayout
@@ -209,5 +205,10 @@
             android:textColor="@color/white" />
 
     </LinearLayout>
+
+    <!-- Bottom Navigation -->
+    <include
+        android:id="@+id/bottomNavigation"
+        layout="@layout/bottom_nav" />
 
 </LinearLayout>
