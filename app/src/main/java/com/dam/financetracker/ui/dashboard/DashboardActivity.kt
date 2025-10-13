@@ -7,26 +7,27 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.dam.financetracker.databinding.ActivityDashboardBinding
 import com.dam.financetracker.models.Transaction
 import com.dam.financetracker.models.TransactionType
 import com.dam.financetracker.repository.AuthRepository
 import com.dam.financetracker.ui.auth.LoginActivity
-import com.dam.financetracker.ui.settings.SettingsActivity   // <-- NUEVO
 import com.dam.financetracker.ui.transaction.TransactionActivity
 import com.dam.financetracker.ui.transaction.TransactionViewModel
+import com.dam.financetracker.ui.settings.SettingsActivity // Importar SettingsActivity
+import com.dam.financetracker.ui.category.CategoryActivity // Aunque no se usa directamente, se mantiene la importación si fuera necesario en el futuro
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
-import java.util.Locale
+import java.util.*
 
 class DashboardActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityDashboardBinding
     private val authRepository = AuthRepository()
-
-    // Usar TransactionViewModel para conectar con
+    // Usar TransactionViewModel para conectar con Firebase
     private val transactionViewModel: TransactionViewModel by viewModels()
-
     private lateinit var transactionAdapter: TransactionAdapter
 
     private val currencyFormat = NumberFormat.getCurrencyInstance(Locale("es", "PE"))
@@ -37,16 +38,46 @@ class DashboardActivity : AppCompatActivity() {
         binding = ActivityDashboardBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // En modo local, configurar un email de demo si no hay uno guardado
-        setupDemoUserIfNeeded()
+        // Título TopBar
+        binding.topBar.tvTitle.text = "General"
+        // Evitar superposición con la barra de estado
+        ViewCompat.setOnApplyWindowInsetsListener(binding.topBar.root) { v, insets ->
+            val top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+            v.setPadding(v.paddingLeft, top, v.paddingRight, v.paddingBottom)
+            insets
+        }
 
+        setupDemoUserIfNeeded()
         setupRecyclerView()
         loadUserInfo()
         setupViews()
         setupObservers()
+        setupBottomNavigation()
 
-        // Cargar transacciones al iniciar
         transactionViewModel.refreshTransactions()
+    }
+
+    private fun setupBottomNavigation() {
+        // CORRECCIÓN CLAVE: Usar el ID de la BottomNavigationView anidada.
+        binding.bottomNavigation.bottomNavigation.selectedItemId = com.dam.financetracker.R.id.nav_home
+
+        binding.bottomNavigation.bottomNavigation.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                com.dam.financetracker.R.id.nav_home -> true
+                com.dam.financetracker.R.id.nav_transactions -> {
+                    // Abrir actividad de transacciones para registro
+                    openTransactionActivity(com.dam.financetracker.models.TransactionType.INCOME)
+                    true
+                }
+                com.dam.financetracker.R.id.nav_settings -> {
+                    // NAVEGACIÓN HU-003: Ir a SettingsActivity (Ajustes/Perfil)
+                    startActivity(Intent(this, SettingsActivity::class.java))
+                    true
+                }
+                // Aquí deberías añadir nav_reports si lo deseas
+                else -> true
+            }
+        }
     }
 
     private fun setupRecyclerView() {
@@ -60,23 +91,20 @@ class DashboardActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadUserInfo() {
+    private fun loadUserInfo(){
         lifecycleScope.launch {
             try {
                 val user = authRepository.getCurrentUser()
                 if (user != null) {
                     binding.tvWelcome.text = "Bienvenido"
                     binding.tvEmail.text = user.email
-                    // Guardar el email en SharedPreferences para uso futuro
                     saveUserEmail(user.email)
                 } else {
-                    // Mostrar email por defecto
                     binding.tvWelcome.text = "Bienvenido"
                     val savedEmail = getSavedUserEmail()
                     binding.tvEmail.text = savedEmail
                 }
-            } catch (e: Exception) {
-                // En caso de error, mostrar el email guardado o uno por defecto
+            } catch (e: Exception){
                 binding.tvWelcome.text = "Bienvenido"
                 val savedEmail = getSavedUserEmail()
                 binding.tvEmail.text = savedEmail
@@ -97,7 +125,6 @@ class DashboardActivity : AppCompatActivity() {
     }
 
     private fun setupDemoUserIfNeeded() {
-        // Si no hay email guardado, configurar uno de demo para testing local
         val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
         if (!prefs.contains("user_email")) {
             saveUserEmail("demo@financetracker.com")
@@ -105,18 +132,15 @@ class DashboardActivity : AppCompatActivity() {
     }
 
     private fun setupViews() {
-        // NUEVO: botón de configuración en el header (ImageButton)
-        binding.btnSettings.setOnClickListener {
-            // Navega a la pantalla de Configuración / Perfil
-            startActivity(Intent(this, SettingsActivity::class.java))
+        // Botón 'Salir' del Header (Temporal)
+        binding.btnLogout.setOnClickListener {
+            authRepository.signOut()
+            startActivity(Intent(this, LoginActivity::class.java))
+            finish()
         }
 
-        binding.btnAddIncome.setOnClickListener {
+        binding.btnAddTransaction.setOnClickListener {
             openTransactionActivity(TransactionType.INCOME)
-        }
-
-        binding.btnAddExpense.setOnClickListener {
-            openTransactionActivity(TransactionType.EXPENSE)
         }
 
         binding.btnAddFirstTransaction.setOnClickListener {
@@ -131,7 +155,6 @@ class DashboardActivity : AppCompatActivity() {
     private fun setupObservers() {
         lifecycleScope.launch {
             transactionViewModel.transactions.collect { transactions ->
-                // Mostrar solo las últimas 5 en el dashboard
                 transactionAdapter.submitList(transactions.take(5))
 
                 if (transactions.isEmpty()) {
@@ -165,14 +188,8 @@ class DashboardActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Recargar transacciones cuando se vuelve a esta actividad
+        // Asegurar que Home quede seleccionado al volver
+        binding.bottomNavigation.bottomNavigation.selectedItemId = com.dam.financetracker.R.id.nav_home
         transactionViewModel.refreshTransactions()
-    }
-
-    // Opcional: si decides cerrar sesión desde SettingsActivity y vuelves aquí,
-    // puedes llamar a este helper para redirigir al login.
-    private fun goToLoginAndFinish() {
-        startActivity(Intent(this, LoginActivity::class.java))
-        finish()
     }
 }

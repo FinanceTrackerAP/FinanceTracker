@@ -12,20 +12,23 @@ class CategoryRepository {
 
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
-    private val CATEGORIES_COLLECTION = "categories"
+    // Renombrado a camelCase para evitar advertencias de convenciones
+    private val categoriesCollection = "categories"
 
     // Obtiene categorías personalizadas del usuario
     private suspend fun getCustomCategories(): List<TransactionCategory> {
         val userId = auth.currentUser?.uid ?: return emptyList()
 
         return try {
-            val snapshot = firestore.collection(CATEGORIES_COLLECTION)
+            val snapshot = firestore.collection(categoriesCollection)
                 .whereEqualTo("userId", userId)
                 .get()
                 .await()
 
             snapshot.documents.mapNotNull { it.toObject(TransactionCategory::class.java) }
         } catch (e: Exception) {
+            // Se usa 'e' para evitar la advertencia de parámetro no usado
+            e.printStackTrace()
             emptyList()
         }
     }
@@ -33,17 +36,17 @@ class CategoryRepository {
     // Crea una nueva categoría personalizada (HU-003: 1)
     suspend fun createCategory(category: TransactionCategory): Result<Unit> {
         val userId = auth.currentUser?.uid ?: return Result.failure(Exception("Usuario no autenticado"))
-        val categoryId = firestore.collection(CATEGORIES_COLLECTION).document().id
+        val categoryId = firestore.collection(categoriesCollection).document().id
 
+        // Aseguramos que el objeto tiene el campo userId
         val newCategory = category.copy(
             id = categoryId,
             userId = userId,
             isDefault = false,
-            // La lógica de subir la imagen se implementaría aquí. Por ahora, solo es el registro de texto.
         )
 
         return try {
-            firestore.collection(CATEGORIES_COLLECTION)
+            firestore.collection(categoriesCollection)
                 .document(categoryId)
                 .set(newCategory)
                 .await()

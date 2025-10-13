@@ -8,52 +8,160 @@
     android:background="@color/surface_color"
     tools:context=".ui.category.CategoryActivity">
 
-    <!-- Toolbar -->
-    <com.google.android.material.appbar.MaterialToolbar
-        android:id="@+id/toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="@drawable/gradient_purple_header"
-        android:elevation="4dp"
-        app:navigationIcon="@drawable/ic_arrow_right"
-        app:navigationIconTint="@color/white"
-        app:title="@string/category_management_title"
-        app:titleTextColor="@color/white" />
-
+    <!-- TopBar (simulando el diseño del Figma) -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:gravity="center"
+        android:layout_height="wrap_content"
+        android:background="@drawable/gradient_purple_header"
         android:orientation="vertical"
-        android:padding="32dp">
+        android:paddingTop="36dp"
+        android:paddingBottom="16dp"
+        android:paddingHorizontal="16dp">
 
-        <TextView
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/category_hu_title"
-            android:textColor="@color/primary_text"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:textAlignment="center" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/category_hu_description"
-            android:textColor="@color/secondary_text"
-            android:textSize="14sp"
-            android:textAlignment="center" />
+            <ImageView
+                android:id="@+id/btnBack"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@drawable/ic_arrow_right"
+                android:contentDescription="Volver"
+                app:tint="@color/white"
+                android:rotation="180"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:focusable="true"/>
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnAddCategory"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="@string/category_add_custom"
-            android:backgroundTint="@color/success_green"
-            android:textColor="@color/white" />
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="16dp"
+                android:text="Categorías"
+                android:textColor="@color/white"
+                android:textSize="20sp"
+                android:textStyle="bold" />
 
+            <!-- Icono de Notificaciones -->
+            <ImageView
+                android:id="@+id/ivBell"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_bell"
+                app:tint="@color/white"
+                android:visibility="invisible" />
+
+        </LinearLayout>
     </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="24dp"
+            android:paddingTop="24dp"
+            android:paddingBottom="80dp">
+
+            <!-- Categorías de Ingresos -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="16dp"
+                android:gravity="center_vertical">
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Categorías de Ingresos"
+                    android:textColor="@color/primary_text"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/tvViewAllIncome"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Ver todas"
+                    android:textColor="@color/primary_purple"
+                    android:textSize="14sp"
+                    android:padding="8dp" />
+            </LinearLayout>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvIncomeCategories"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="24dp"
+                android:nestedScrollingEnabled="false"
+                tools:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+                tools:itemCount="3"
+                tools:listitem="@layout/item_category_list" />
+
+            <!-- Categorías de Gastos -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="16dp"
+                android:gravity="center_vertical">
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Categorías de Gastos"
+                    android:textColor="@color/primary_text"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/tvViewAllExpense"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Ver todas"
+                    android:textColor="@color/primary_purple"
+                    android:textSize="14sp"
+                    android:padding="8dp" />
+            </LinearLayout>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvExpenseCategories"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false"
+                tools:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+                tools:itemCount="3"
+                tools:listitem="@layout/item_category_list" />
+
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- Botón flotante para crear nueva categoría (Botón principal de HU-003.1) -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnCreateNewCategory"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_gravity="bottom"
+        android:layout_marginHorizontal="24dp"
+        android:layout_marginBottom="76dp"
+        android:backgroundTint="@color/primary_purple"
+        android:text="Crear nueva categoría"
+        android:textColor="@color/white"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        app:cornerRadius="12dp" />
+
+    <!-- Bottom Navigation -->
+    <include
+        android:id="@+id/bottomNavigation"
+        layout="@layout/bottom_nav" />
 
 </LinearLayout>

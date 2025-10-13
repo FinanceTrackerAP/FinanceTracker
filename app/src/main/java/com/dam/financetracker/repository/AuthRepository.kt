@@ -8,8 +8,6 @@ import com.dam.financetracker.utils.FirebaseUtils
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
 
 class AuthRepository {
 

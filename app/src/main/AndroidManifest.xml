@@ -13,38 +13,47 @@
         android:theme="@style/Theme.FinanceTracker"
         tools:targetApi="31">
 
-    <activity
-        android:name=".MainActivity"
-        android:exported="true">
-        <intent-filter>
-            <action android:name="android.intent.action.MAIN" />
-            <category android:name="android.intent.category.LAUNCHER" />
-        </intent-filter>
-    </activity>
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
 
-    <activity
-        android:name=".ui.auth.LoginActivity"
-        android:exported="false" />
+        <activity
+            android:name=".ui.auth.LoginActivity"
+            android:exported="false" />
 
-    <activity
-        android:name=".ui.auth.RegisterActivity"
-        android:exported="false" />
+        <activity
+            android:name=".ui.auth.RegisterActivity"
+            android:exported="false" />
 
-    <activity
-        android:name=".ui.dashboard.DashboardActivity"
-        android:exported="false" />
+        <activity
+            android:name=".ui.dashboard.DashboardActivity"
+            android:exported="false" />
 
-    <activity
-        android:name=".ui.transaction.TransactionActivity"
-        android:exported="false" />
+        <activity
+            android:name=".ui.transaction.TransactionActivity"
+            android:exported="false" />
 
-    <activity
-        android:name=".ui.settings.SettingsActivity"
-        android:exported="false" />
+        <activity
+            android:name=".ui.settings.SettingsActivity"
+            android:exported="false" />
 
-    <activity
-        android:name=".ui.category.CategoryActivity"
-        android:exported="false" />
+        <activity
+            android:name=".ui.category.CategoryActivity"
+            android:exported="false" />
+
+        <!-- NUEVA ACTIVIDAD: ChangePasswordActivity -->
+        <activity
+            android:name=".ui.settings.ChangePasswordActivity"
+            android:exported="false" />
+
+        <!-- NUEVA ACTIVIDAD: NewCategoryActivity -->
+        <activity android:name=".ui.category.NewCategoryActivity"
+            android:exported="false" />
 
     </application>
 

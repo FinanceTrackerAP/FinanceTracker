@@ -8,17 +8,10 @@
     android:background="@color/white"
     tools:context=".ui.transaction.TransactionActivity">
 
-    <!--  Toolbar  -->
-    <com.google.android.material.appbar.MaterialToolbar
-        android:id="@+id/toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="@drawable/gradient_purple_header"
-        android:elevation="4dp"
-        app:navigationIcon="@drawable/ic_arrow_right"
-        app:navigationIconTint="@color/white"
-        app:title="Nueva Transacción"
-        app:titleTextColor="@color/white" />
+    <!-- TopBar -->
+    <include
+        android:id="@+id/topBar"
+        layout="@layout/top_bar" />
 
     <ScrollView
         android:layout_width="match_parent"
@@ -32,41 +25,58 @@
             android:orientation="vertical"
             android:padding="24dp">
 
-            <!--  Título  -->
+            <!-- Título -->
             <TextView
                 android:id="@+id/tvTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Nueva Transacción"
+                android:text="Registrar transacción"
                 android:textColor="@color/primary_text"
-                android:textSize="24sp"
+                android:textSize="20sp"
                 android:textStyle="bold"
-                android:layout_marginBottom="24dp" />
+                android:layout_marginBottom="16dp" />
 
-            <!--  Tipo de transacción  -->
-            <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/tilType"
+            <!-- Toggle Ingreso/Gasto -->
+            <LinearLayout
+                android:id="@+id/toggleType"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="44dp"
+                android:orientation="horizontal"
                 android:layout_marginBottom="16dp"
-                android:hint="Tipo de transacción"
-                app:boxStrokeColor="@color/primary_purple"
-                app:hintTextColor="@color/primary_purple"
-                app:errorTextColor="@color/error_red"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
+                android:padding="4dp"
+                android:background="@drawable/bg_toggle_container">
 
-                <AutoCompleteTextView
-                    android:id="@+id/spinnerType"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:inputType="none"
-                    android:focusable="false"
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnIncome"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:text="Ingreso"
+                    android:textAllCaps="false"
+                    android:textStyle="bold"
+                    android:textColor="@color/white"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    app:cornerRadius="20dp"
+                    app:backgroundTint="@color/success_green" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnExpense"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:text="Gasto"
+                    android:textAllCaps="false"
+                    android:textStyle="bold"
                     android:textColor="@color/primary_text"
-                    android:textSize="16sp" />
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    app:cornerRadius="20dp"
+                    app:backgroundTint="@android:color/transparent" />
 
-            </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
 
-            <!--  Monto  -->
+            <!-- Monto -->
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/tilAmount"
                 android:layout_width="match_parent"
@@ -88,12 +98,12 @@
 
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!--  Descripción  -->
+            <!-- Descripción -->
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/tilDescription"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
+                android:layout_marginBottom="16dp"
                 android:hint="Descripción"
                 app:boxStrokeColor="@color/primary_purple"
                 app:hintTextColor="@color/primary_purple"
@@ -112,42 +122,7 @@
 
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!--  Sugerencia de categoría (nuevo bloque)  -->
-            <LinearLayout
-                android:id="@+id/layoutSuggestion"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingBottom="16dp"
-                android:visibility="gone"
-                tools:visibility="visible">
-
-                <TextView
-                    android:id="@+id/tvSuggestionLabel"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Sugerencia:"
-                    android:textColor="@color/secondary_text"
-                    android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:layout_marginEnd="8dp" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnSuggestCategory"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    tools:text="Marketing"
-                    android:textColor="@color/white"
-                    android:backgroundTint="@color/primary_purple"
-                    android:textSize="12sp"
-                    android:minHeight="0dp"
-                    android:paddingHorizontal="16dp"
-                    android:paddingVertical="8dp"
-                    app:cornerRadius="8dp" />
-            </LinearLayout>
-
-            <!--  Categoría  -->
+            <!-- Categoría -->
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/tilCategory"
                 android:layout_width="match_parent"
@@ -170,7 +145,7 @@
 
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!--  Fecha  -->
+            <!-- Fecha -->
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/tilDate"
                 android:layout_width="match_parent"
@@ -196,7 +171,7 @@
 
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!--  Progress Bar  -->
+            <!-- Progress Bar -->
             <ProgressBar
                 android:id="@+id/progressBar"
                 android:layout_width="wrap_content"
@@ -206,25 +181,15 @@
                 android:visibility="gone"
                 android:indeterminateTint="@color/primary_purple" />
 
-            <!--  Botones  -->
+            <!-- Botones -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="end">
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnCancel"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginEnd="12dp"
-                    android:text="Cancelar"
-                    android:textColor="@color/primary_purple"
-                    style="@style/Widget.MaterialComponents.Button.TextButton" />
+                android:orientation="horizontal">
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnSave"
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="Guardar"
                     android:backgroundTint="@color/primary_purple"
@@ -235,5 +200,10 @@
         </LinearLayout>
 
     </ScrollView>
+
+    <!-- Bottom Navigation -->
+    <include
+        android:id="@+id/bottomNavigation"
+        layout="@layout/bottom_nav" />
 
 </LinearLayout>

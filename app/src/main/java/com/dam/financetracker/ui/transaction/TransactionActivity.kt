@@ -8,8 +8,9 @@ import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.addTextChangedListener
-import androidx.core.widget.doAfterTextChanged // <- NUEVO
 import androidx.lifecycle.lifecycleScope
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.dam.financetracker.R
 import com.dam.financetracker.databinding.ActivityTransactionBinding
 import com.dam.financetracker.models.DefaultExpenseCategories
@@ -45,61 +46,63 @@ class TransactionActivity : AppCompatActivity() {
         setupViews()
         setupObservers()
         handleIntent()
+        setupBottomNavigation()
+        // Evitar superposición con la barra de estado
+        ViewCompat.setOnApplyWindowInsetsListener(binding.topBar.root) { v, insets ->
+            val top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+            v.setPadding(v.paddingLeft, top, v.paddingRight, v.paddingBottom)
+            insets
+        }
     }
 
     private fun setupViews() {
-        // Toolbar
-        binding.toolbar.setNavigationOnClickListener { finish() }
+        // Configurar top bar título
+        binding.topBar.tvTitle.text = "Transacciones"
 
-        // Selector de tipo
-        setupTypeSpinner()
+        // Configurar selector de tipo con botones
+        setupTypeToggle()
 
-        // Monto
+        // Configurar listeners de texto
         binding.etAmount.addTextChangedListener {
             viewModel.setAmount(it?.toString() ?: "")
         }
 
-        // Descripción + disparo de sugerencia
-        binding.etDescription.doAfterTextChanged { text ->
-            val value = text?.toString() ?: ""
-            viewModel.setDescription(value)
-            if (value.length > 5) {
-                viewModel.requestCategorySuggestion()
-            } else {
-                // Si es corto, ocultamos la banda de sugerencia en UI
-                binding.layoutSuggestion.visibility = View.GONE
-            }
+        binding.etDescription.addTextChangedListener {
+            viewModel.setDescription(it?.toString() ?: "")
         }
 
-        // Fecha
-        binding.etDate.setOnClickListener { showDatePicker() }
+        // Configurar selector de fecha
+        binding.etDate.setOnClickListener {
+            showDatePicker()
+        }
 
-        // Botones
-        binding.btnSave.setOnClickListener { viewModel.saveTransaction() }
-        binding.btnCancel.setOnClickListener { finish() }
+        // Configurar botón guardar
+        binding.btnSave.setOnClickListener {
+            viewModel.saveTransaction()
+        }
 
-        // Categorías por defecto
+        // Configurar spinner de categorías por defecto
         setupCategorySpinner(TransactionType.INCOME)
 
-        // Fecha inicial
+        // Configurar fecha inicial
         updateDateDisplay(System.currentTimeMillis())
     }
 
     private fun setupObservers() {
         lifecycleScope.launch {
-            // Tipo
+            // Observar tipo de transacción
             viewModel.transactionType.collect { type ->
-                when (type) {
-                    TransactionType.INCOME -> binding.spinnerType.setText("Ingreso", false)
-                    TransactionType.EXPENSE -> binding.spinnerType.setText("Gasto", false)
-                }
+                // Actualiza estilos de botones
+                updateToggleStyles(type)
                 setupCategorySpinner(type)
-                updateTitle()
+                updateTitle() // Actualizar título cuando cambie el tipo
+                // Actualizar texto del botón principal
+                binding.btnSave.text = if (type == TransactionType.INCOME) "Guardar Ingreso" else "Guardar Gasto"
             }
         }
 
         lifecycleScope.launch {
-            // Monto
+            // Observar monto
             viewModel.amount.collect { amount ->
                 if (binding.etAmount.text.toString() != amount) {
                     binding.etAmount.setText(amount)
@@ -108,7 +111,7 @@ class TransactionActivity : AppCompatActivity() {
         }
 
         lifecycleScope.launch {
-            // Descripción
+            // Observar descripción
             viewModel.description.collect { description ->
                 if (binding.etDescription.text.toString() != description) {
                     binding.etDescription.setText(description)
@@ -117,44 +120,49 @@ class TransactionActivity : AppCompatActivity() {
         }
 
         lifecycleScope.launch {
-            // Fecha
+            // Observar fecha seleccionada
             viewModel.selectedDate.collect { date ->
                 updateDateDisplay(date)
             }
         }
 
         lifecycleScope.launch {
-            // Modo edición
+            // Observar modo de edición
             viewModel.isEditMode.collect { isEditMode ->
                 binding.btnSave.text = if (isEditMode) "Actualizar" else "Guardar"
-                updateTitle()
+                updateTitle() // Actualizar título cuando cambie el modo de edición
             }
         }
 
         lifecycleScope.launch {
-            // Errores
-            viewModel.amountError.collect { binding.tilAmount.error = it }
+            // Observar errores de validación
+            viewModel.amountError.collect { error ->
+                binding.tilAmount.error = error
+            }
         }
 
         lifecycleScope.launch {
-            viewModel.descriptionError.collect { binding.tilDescription.error = it }
+            viewModel.descriptionError.collect { error ->
+                binding.tilDescription.error = error
+            }
         }
 
         lifecycleScope.launch {
-            viewModel.categoryError.collect { binding.tilCategory.error = it }
+            viewModel.categoryError.collect { error ->
+                binding.tilCategory.error = error
+            }
         }
 
         lifecycleScope.launch {
-            // Loading
+            // Observar estado de carga
             viewModel.isLoading.collect { isLoading ->
                 binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
                 binding.btnSave.isEnabled = !isLoading
-                binding.btnCancel.isEnabled = !isLoading
             }
         }
 
         lifecycleScope.launch {
-            // Resultado operación
+            // Observar resultados de operaciones
             viewModel.operationResult.collect { result ->
                 if (result.isSuccess) {
                     Toast.makeText(this@TransactionActivity, result.getOrNull(), Toast.LENGTH_SHORT).show()
@@ -168,49 +176,24 @@ class TransactionActivity : AppCompatActivity() {
                 }
             }
         }
-
-        lifecycleScope.launch {
-            // NUEVO: observar sugerencia de categoría (HU-003: Escenario 3)
-            viewModel.suggestedCategory.collect { suggestion ->
-                when {
-                    suggestion.isNullOrEmpty() -> {
-                        binding.layoutSuggestion.visibility = View.GONE
-                    }
-                    suggestion == "Cargando sugerencia..." -> {
-                        binding.layoutSuggestion.visibility = View.VISIBLE
-                        binding.btnSuggestCategory.text = suggestion
-                        binding.btnSuggestCategory.setOnClickListener(null) // sin acción mientras carga
-                    }
-                    else -> {
-                        binding.layoutSuggestion.visibility = View.VISIBLE
-                        binding.btnSuggestCategory.text = suggestion
-                        binding.btnSuggestCategory.setOnClickListener {
-                            viewModel.setCategory(suggestion)
-                            binding.spinnerCategory.setText(suggestion, false)
-                            binding.layoutSuggestion.visibility = View.GONE
-                        }
-                    }
-                }
-            }
-        }
     }
 
     private fun handleIntent() {
-        // Editar transacción
+        // Verificar si se está editando una transacción
         val transactionExtra = intent.getSerializableExtra(EXTRA_TRANSACTION) as? Transaction
         transactionExtra?.let { transaction ->
             viewModel.loadTransactionForEdit(transaction)
             setupCategorySpinner(transaction.type)
-            updateTitle()
+            updateTitle() // Actualizar título inmediatamente al cargar para editar
             return
         }
 
-        // Tipo específico
+        // Verificar si se pasó un tipo de transacción específico
         val transactionTypeExtra = intent.getStringExtra(EXTRA_TRANSACTION_TYPE)
         transactionTypeExtra?.let { typeString ->
             val type = try {
                 TransactionType.valueOf(typeString)
-            } catch (_: IllegalArgumentException) {
+            } catch (e: IllegalArgumentException) {
                 TransactionType.INCOME
             }
             viewModel.setTransactionType(type)
@@ -226,13 +209,13 @@ class TransactionActivity : AppCompatActivity() {
         val adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, categories)
         binding.spinnerCategory.setAdapter(adapter)
 
-        // Selección
+        // Listener para cuando se selecciona una categoría
         binding.spinnerCategory.setOnItemClickListener { _, _, position, _ ->
             val selectedCategory = categories[position]
             viewModel.setCategory(selectedCategory)
         }
 
-        // Mantener selección si edita
+        // Seleccionar categoría actual si está en modo edición
         lifecycleScope.launch {
             viewModel.category.collect { category ->
                 if (categories.contains(category) && binding.spinnerCategory.text.toString() != category) {
@@ -263,22 +246,30 @@ class TransactionActivity : AppCompatActivity() {
         binding.etDate.setText(dateFormat.format(Date(timestamp)))
     }
 
-    private fun setupTypeSpinner() {
-        val types = arrayOf("Ingreso", "Gasto")
-        val adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, types)
-        binding.spinnerType.setAdapter(adapter)
-
-        binding.spinnerType.setOnItemClickListener { _, _, position, _ ->
-            val selectedType = when (position) {
-                0 -> TransactionType.INCOME
-                1 -> TransactionType.EXPENSE
-                else -> TransactionType.INCOME
-            }
-            viewModel.setTransactionType(selectedType)
+    private fun setupTypeToggle() {
+        binding.btnIncome.setOnClickListener {
+            viewModel.setTransactionType(TransactionType.INCOME)
         }
-
-        binding.spinnerType.setText("Ingreso", false)
+        binding.btnExpense.setOnClickListener {
+            viewModel.setTransactionType(TransactionType.EXPENSE)
+        }
+        updateToggleStyles(TransactionType.INCOME)
         viewModel.setTransactionType(TransactionType.INCOME)
+    }
+
+    private fun updateToggleStyles(type: TransactionType) {
+        val incomeSelected = type == TransactionType.INCOME
+        if (incomeSelected) {
+            binding.btnIncome.backgroundTintList = getColorStateList(R.color.success_green)
+            binding.btnIncome.setTextColor(getColor(R.color.white))
+            binding.btnExpense.backgroundTintList = getColorStateList(android.R.color.transparent)
+            binding.btnExpense.setTextColor(getColor(R.color.primary_text))
+        } else {
+            binding.btnIncome.backgroundTintList = getColorStateList(android.R.color.transparent)
+            binding.btnIncome.setTextColor(getColor(R.color.primary_text))
+            binding.btnExpense.backgroundTintList = getColorStateList(R.color.error_red)
+            binding.btnExpense.setTextColor(getColor(R.color.white))
+        }
     }
 
     private fun updateTitle() {
@@ -292,6 +283,20 @@ class TransactionActivity : AppCompatActivity() {
                 !isEditMode && transactionType == TransactionType.INCOME -> "Registrar Ingreso"
                 !isEditMode && transactionType == TransactionType.EXPENSE -> "Registrar Gasto"
                 else -> "Nueva Transacción"
+            }
+        }
+    }
+
+    private fun setupBottomNavigation() {
+        // Mantener seleccionado el tab de Transacciones
+        binding.bottomNavigation.root.selectedItemId = com.dam.financetracker.R.id.nav_transactions
+        binding.bottomNavigation.root.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                com.dam.financetracker.R.id.nav_home -> {
+                    finish() // volver a dashboard
+                    true
+                }
+                else -> true
             }
         }
     }

@@ -8,15 +8,19 @@
     android:background="@color/white"
     tools:context=".ui.dashboard.DashboardActivity">
 
-    <!--  Header  -->
+    <!-- TopBar -->
+    <include
+        android:id="@+id/topBar"
+        layout="@layout/top_bar" />
+
+    <!-- Header -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@drawable/gradient_purple_header"
         android:orientation="vertical"
-        android:padding="24dp">
+        android:padding="16dp">
 
-        <!-- Fila: saludo + botón de configuración -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -50,23 +54,24 @@
 
             </LinearLayout>
 
-            <!-- ImageButton de configuración (reemplaza a btnLogout) -->
-            <ImageButton
-                android:id="@+id/btnSettings"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:src="@drawable/ic_settings"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="Configuración de usuario"
-                app:tint="@color/white"
-                android:layout_marginStart="16dp" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnLogout"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Salir"
+                android:textColor="@color/white"
+                android:backgroundTint="@android:color/transparent"
+                app:strokeColor="@color/white"
+                app:strokeWidth="1dp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
         </LinearLayout>
 
-        <!--  Balance Card  -->
+        <!-- Balance Card -->
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="12dp"
             app:cardCornerRadius="12dp"
             app:cardElevation="4dp"
             android:backgroundTint="@color/white">
@@ -84,15 +89,34 @@
                     android:textColor="@color/secondary_text"
                     android:textSize="14sp" />
 
-                <TextView
-                    android:id="@+id/tvBalance"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="S/ 0.00"
-                    android:textColor="@color/primary_text"
-                    android:textSize="28sp"
-                    android:textStyle="bold" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:id="@+id/tvBalance"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginTop="8dp"
+                        android:text="S/ 0.00"
+                        android:textColor="@color/primary_text"
+                        android:textSize="28sp"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.floatingactionbutton.FloatingActionButton
+                        android:id="@+id/btnAddTransaction"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:contentDescription="Agregar transacción"
+                        app:tint="@color/white"
+                        app:maxImageSize="24dp"
+                        app:srcCompat="@drawable/ic_add"
+                        app:backgroundTint="@color/primary_purple" />
+
+                </LinearLayout>
 
             </LinearLayout>
 
@@ -100,40 +124,12 @@
 
     </LinearLayout>
 
-    <!--  Action Buttons  -->
-    <LinearLayout
+    <!-- Bottom space before list -->
+    <Space
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="16dp">
+        android:layout_height="8dp" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnAddIncome"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginEnd="8dp"
-            android:text="+ Ingreso"
-            android:textColor="@color/white"
-            android:backgroundTint="@color/success_green"
-            app:icon="@drawable/ic_add"
-            app:iconTint="@color/white" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnAddExpense"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginStart="8dp"
-            android:text="+ Gasto"
-            android:textColor="@color/white"
-            android:backgroundTint="@color/error_red"
-            app:icon="@drawable/ic_add"
-            app:iconTint="@color/white" />
-
-    </LinearLayout>
-
-    <!--  Transactions Section  -->
+    <!-- Transactions Section -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -162,7 +158,7 @@
 
     </LinearLayout>
 
-    <!--  Transactions RecyclerView  -->
+    <!-- Transactions RecyclerView -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvTransactions"
         android:layout_width="match_parent"
@@ -171,7 +167,7 @@
         android:paddingHorizontal="16dp"
         tools:listitem="@layout/item_transaction" />
 
-    <!--  Empty State  -->
+    <!-- Empty State -->
     <LinearLayout
         android:id="@+id/layoutEmptyState"
         android:layout_width="match_parent"
@@ -209,5 +205,10 @@
             android:textColor="@color/white" />
 
     </LinearLayout>
+
+    <!-- Bottom Navigation -->
+    <include
+        android:id="@+id/bottomNavigation"
+        layout="@layout/bottom_nav" />
 
 </LinearLayout>
