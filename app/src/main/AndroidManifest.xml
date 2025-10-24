@@ -55,6 +55,11 @@
         <activity android:name=".ui.category.NewCategoryActivity"
             android:exported="false" />
 
+        <!-- ReportsActivity - HU-004 -->
+        <activity
+            android:name=".ui.reports.ReportsActivity"
+            android:exported="false" />
+
     </application>
 
 </manifest>

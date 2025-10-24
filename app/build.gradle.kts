@@ -61,6 +61,9 @@ dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
+    // MPAndroidChart - Dependecia para graficos
+    implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
+
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

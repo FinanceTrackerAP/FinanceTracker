@@ -18,6 +18,7 @@ import com.dam.financetracker.ui.transaction.TransactionActivity
 import com.dam.financetracker.ui.transaction.TransactionViewModel
 import com.dam.financetracker.ui.settings.SettingsActivity // Importar SettingsActivity
 import com.dam.financetracker.ui.category.CategoryActivity // Aunque no se usa directamente, se mantiene la importación si fuera necesario en el futuro
+import com.dam.financetracker.ui.reports.ReportsActivity
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.*
@@ -69,12 +70,16 @@ class DashboardActivity : AppCompatActivity() {
                     openTransactionActivity(com.dam.financetracker.models.TransactionType.INCOME)
                     true
                 }
+                com.dam.financetracker.R.id.nav_reports -> {
+                    // NAVEGACIÓN HU-004: Ir a ReportsActivity
+                    startActivity(Intent(this, com.dam.financetracker.ui.reports.ReportsActivity::class.java))
+                    true
+                }
                 com.dam.financetracker.R.id.nav_settings -> {
                     // NAVEGACIÓN HU-003: Ir a SettingsActivity (Ajustes/Perfil)
                     startActivity(Intent(this, SettingsActivity::class.java))
                     true
                 }
-                // Aquí deberías añadir nav_reports si lo deseas
                 else -> true
             }
         }
