@@ -15,6 +15,7 @@ import com.dam.financetracker.models.TransactionType
 import com.dam.financetracker.repository.AuthRepository
 import com.dam.financetracker.ui.auth.LoginActivity
 import com.dam.financetracker.ui.transaction.TransactionActivity
+import com.dam.financetracker.ui.transaction.TransactionHistoryActivity
 import com.dam.financetracker.ui.transaction.TransactionViewModel
 import com.dam.financetracker.ui.settings.SettingsActivity // Importar SettingsActivity
 import com.dam.financetracker.ui.category.CategoryActivity // Aunque no se usa directamente, se mantiene la importación si fuera necesario en el futuro
@@ -153,7 +154,8 @@ class DashboardActivity : AppCompatActivity() {
         }
 
         binding.tvViewAll.setOnClickListener {
-            // TODO: Abrir actividad con todas las transacciones
+            // HU-005: Abrir actividad de historial con filtros
+            startActivity(Intent(this, TransactionHistoryActivity::class.java))
         }
     }
 

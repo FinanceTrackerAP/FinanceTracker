@@ -67,12 +67,50 @@ class TransactionViewModel : ViewModel() {
     private val _suggestedCategory = MutableStateFlow<String?>(null)
     val suggestedCategory: StateFlow<String?> = _suggestedCategory.asStateFlow()
 
+    // ============================
+    // HU-005: Estados de filtrado
+    // ============================
+    
+    // Filtro por fecha
+    private val _filterStartDate = MutableStateFlow<Long?>(null)
+    val filterStartDate: StateFlow<Long?> = _filterStartDate.asStateFlow()
+    
+    private val _filterEndDate = MutableStateFlow<Long?>(null)
+    val filterEndDate: StateFlow<Long?> = _filterEndDate.asStateFlow()
+    
+    // Filtro por categoría
+    private val _filterCategory = MutableStateFlow<String?>(null)
+    val filterCategory: StateFlow<String?> = _filterCategory.asStateFlow()
+    
+    // Búsqueda por descripción
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+    
+    // Transacciones filtradas
+    private val _filteredTransactions = MutableStateFlow<List<Transaction>>(emptyList())
+    val filteredTransactions: StateFlow<List<Transaction>> = _filteredTransactions.asStateFlow()
+
     // Job para manejar la suscripción a transacciones
     private var transactionsJob: kotlinx.coroutines.Job? = null
 
     init {
         // Cargar transacciones de forma segura
         safeLoadTransactions()
+        
+        // HU-005: Observar cambios en filtros para actualizar transacciones filtradas
+        viewModelScope.launch {
+            combine(
+                _transactions,
+                _filterStartDate,
+                _filterEndDate,
+                _filterCategory,
+                _searchQuery
+            ) { transactions, startDate, endDate, category, query ->
+                applyFilters(transactions, startDate, endDate, category, query)
+            }.collect { filtered ->
+                _filteredTransactions.value = filtered
+            }
+        }
     }
 
     fun setTransactionType(type: TransactionType) {
@@ -399,4 +437,95 @@ class TransactionViewModel : ViewModel() {
             description.contains("comida") || description.contains("restaurante") -> "Alimentación"
             else -> null
         }
+    
+    // ============================
+    // HU-005: Funciones de filtrado
+    // ============================
+    
+    /**
+     * Establece el rango de fechas para el filtro.
+     * @param startDate Fecha de inicio en milisegundos (puede ser null para limpiar)
+     * @param endDate Fecha de fin en milisegundos (puede ser null para limpiar)
+     */
+    fun setDateFilter(startDate: Long?, endDate: Long?) {
+        _filterStartDate.value = startDate
+        _filterEndDate.value = endDate
+    }
+    
+    /**
+     * Establece el filtro de categoría.
+     * @param category Nombre de la categoría (null o vacío para limpiar)
+     */
+    fun setCategoryFilter(category: String?) {
+        _filterCategory.value = if (category.isNullOrBlank()) null else category
+    }
+    
+    /**
+     * Establece el texto de búsqueda por descripción.
+     * @param query Texto a buscar en la descripción
+     */
+    fun setSearchQuery(query: String) {
+        _searchQuery.value = query
+    }
+    
+    /**
+     * Limpia todos los filtros aplicados.
+     */
+    fun clearAllFilters() {
+        _filterStartDate.value = null
+        _filterEndDate.value = null
+        _filterCategory.value = null
+        _searchQuery.value = ""
+    }
+    
+    /**
+     * Aplica todos los filtros a la lista de transacciones.
+     */
+    private fun applyFilters(
+        transactions: List<Transaction>,
+        startDate: Long?,
+        endDate: Long?,
+        category: String?,
+        query: String
+    ): List<Transaction> {
+        var filtered = transactions
+        
+        // Filtro por rango de fechas
+        if (startDate != null) {
+            filtered = filtered.filter { it.date >= startDate }
+        }
+        if (endDate != null) {
+            // Agregar 24 horas menos 1 ms para incluir todo el día final
+            val endOfDay = endDate + (24 * 60 * 60 * 1000) - 1
+            filtered = filtered.filter { it.date <= endOfDay }
+        }
+        
+        // Filtro por categoría
+        if (!category.isNullOrBlank()) {
+            filtered = filtered.filter { 
+                it.category.equals(category, ignoreCase = true) 
+            }
+        }
+        
+        // Búsqueda por descripción
+        if (query.isNotBlank()) {
+            filtered = filtered.filter { 
+                it.description.contains(query, ignoreCase = true) 
+            }
+        }
+        
+        return filtered
+    }
+    
+    /**
+     * Obtiene las categorías únicas de las transacciones actuales.
+     * Útil para poblar el spinner de filtro de categorías.
+     */
+    fun getUniqueCategories(): List<String> {
+        return _transactions.value
+            .map { it.category }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .sorted()
+    }
 }

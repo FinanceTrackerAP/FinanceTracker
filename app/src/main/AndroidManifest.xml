@@ -60,6 +60,11 @@
             android:name=".ui.reports.ReportsActivity"
             android:exported="false" />
 
+        <!-- TransactionHistoryActivity - HU-005 -->
+        <activity
+            android:name=".ui.transaction.TransactionHistoryActivity"
+            android:exported="false" />
+
     </application>
 
 </manifest>
