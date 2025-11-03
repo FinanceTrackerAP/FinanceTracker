@@ -16,18 +16,18 @@ class ReportsRepository {
 
     /**
      * Obtiene el reporte financiero para el período especificado
+     * (Implementa HU-006.3: Comparar períodos)
      */
     suspend fun getMonthlyReport(period: ReportPeriod): ReportData {
         return try {
             val currentUserId = firebaseAuth.currentUser?.uid ?: return ReportData()
 
-            // Calcular fechas del período actual
+            // 1. Obtener datos del período actual
             val (startDate, endDate) = getDateRangeForPeriod(period)
-
-            // Obtener transacciones del período actual
+            
             val currentTransactions = getTransactionsForPeriod(currentUserId, startDate, endDate)
 
-            // Calcular totales del período actual
+            
             val currentIncome = currentTransactions
                 .filter { it["type"] == "INCOME" }
                 .sumOf { (it["amount"] as? Number)?.toDouble() ?: 0.0 }
@@ -38,13 +38,12 @@ class ReportsRepository {
 
             val currentBalance = currentIncome - currentExpense
 
-            // Calcular fechas del período anterior (para comparación)
+            // 2. Obtener datos del período anterior (para comparación)
             val (previousStartDate, previousEndDate) = getPreviousDateRange(period)
-
-            // Obtener transacciones del período anterior
+            
             val previousTransactions = getTransactionsForPeriod(currentUserId, previousStartDate, previousEndDate)
 
-            // Calcular totales del período anterior
+           
             val previousIncome = previousTransactions
                 .filter { it["type"] == "INCOME" }
                 .sumOf { (it["amount"] as? Number)?.toDouble() ?: 0.0 }
@@ -55,7 +54,7 @@ class ReportsRepository {
 
             val previousBalance = previousIncome - previousExpense
 
-            // Calcular porcentajes de cambio
+            // 3. Calcular porcentajes de cambio
             val incomePercentage = calculatePercentageChange(previousIncome, currentIncome)
             val expensePercentage = calculatePercentageChange(previousExpense, currentExpense)
             val balancePercentage = calculatePercentageChange(previousBalance, currentBalance)
@@ -76,6 +75,7 @@ class ReportsRepository {
 
     /**
      * Obtiene los datos de tendencias agrupados por día
+     * (Implementa HU-006.1: Reporte con gráficos de tendencias)
      */
     suspend fun getTrendData(period: ReportPeriod): TrendData {
         return try {
@@ -84,7 +84,7 @@ class ReportsRepository {
             val (startDate, endDate) = getDateRangeForPeriod(period)
             val transactions = getTransactionsForPeriod(currentUserId, startDate, endDate)
 
-            // Agrupar transacciones por DÍA (en lugar de mes)
+            // Agrupar transacciones por DÍA para los puntos del gráfico
             val dailyMap = mutableMapOf<String, Pair<Float, Float>>() // día -> (income, expense)
 
             transactions.forEach { transaction ->
@@ -111,23 +111,23 @@ class ReportsRepository {
                 }
             }
 
-            // Convertir a lista de MonthlyData ordenada por fecha
+            // Convertir a lista de MonthlyData (que representa puntos diarios) ordenada por fecha
             val dailyDataList = dailyMap.entries
-                .sortedBy { it.key } // Ordenar por la clave "yyyy-MM-dd"
+                .sortedBy { it.key }
                 .map { (key, values) ->
                     val parts = key.split("-")
-                    val year = parts[0].toInt()
+                    
                     val month = parts[1].toInt()
                     val day = parts[2].toInt()
 
-                    // Formato de etiqueta: "6 Oct" o "13 Oct"
+                    // Formato de etiqueta: "6 Oct"
                     val monthName = getMonthNameShort(month - 1)
                     val dayLabel = "$day $monthName"
 
                     MonthlyData(
                         month = dayLabel,
                         monthNumber = month,
-                        year = year,
+                        year = parts[0].toInt(),
                         income = values.first,
                         expense = values.second
                     )
@@ -161,7 +161,7 @@ class ReportsRepository {
     }
 
     /**
-     * Obtiene transacciones de Firestore para un rango de fechas
+     * Obtiene transacciones de Firestore para un rango de fechas, filtrando por userId o businessId
      */
     private suspend fun getTransactionsForPeriod(
         userId: String,
@@ -169,17 +169,17 @@ class ReportsRepository {
         endDate: Long
     ): List<Map<String, Any>> {
         return try {
-            // Obtener TODAS las transacciones del usuario (sin filtro de userId/businessId primero)
+            // 1. Consulta por rango de fechas
             val snapshot = firestore.collection("transactions")
                 .whereGreaterThanOrEqualTo("date", startDate)
                 .whereLessThanOrEqualTo("date", endDate)
                 .get()
                 .await()
 
-            // Filtrar en memoria por userId o businessId
+            
             val allTransactions = snapshot.documents.mapNotNull { it.data }
 
-            // Obtener businessId del usuario
+            // 2. Obtener businessId del usuario para filtrar
             val userDoc = firestore.collection("users")
                 .document(userId)
                 .get()
@@ -187,11 +187,11 @@ class ReportsRepository {
 
             val businessId = userDoc.getString("businessId")
 
-            // Filtrar transacciones que pertenezcan al usuario
+            // 3. Filtrar en memoria por userId o businessId (garantizando acceso solo a datos propios)
             allTransactions.filter { transaction ->
                 val transUserId = transaction["userId"] as? String
                 val transBusinessId = transaction["businessId"] as? String
-                transUserId == userId || transBusinessId == businessId
+                transUserId == userId || (businessId != null && transBusinessId == businessId)
             }
 
         } catch (e: Exception) {
@@ -212,7 +212,7 @@ class ReportsRepository {
     }
 
     /**
-     * Obtiene el rango de fechas para el período especificado
+     * Obtiene el rango de fechas para el período actual
      */
     private fun getDateRangeForPeriod(period: ReportPeriod): Pair<Long, Long> {
         val calendar = Calendar.getInstance()
@@ -234,7 +234,7 @@ class ReportsRepository {
     private fun getPreviousDateRange(period: ReportPeriod): Pair<Long, Long> {
         val calendar = Calendar.getInstance()
 
-        // Calcular fecha de inicio del período anterior
+        // Restamos el doble de días del período para llegar al inicio del período anterior
         calendar.add(Calendar.DAY_OF_YEAR, when (period) {
             ReportPeriod.ONE_MONTH -> -60  // De -60 a -30 días
             ReportPeriod.THREE_MONTHS -> -180 // De -180 a -90 días
@@ -243,6 +243,7 @@ class ReportsRepository {
 
         val previousStartDate = calendar.timeInMillis
 
+        // Sumamos el período (30, 90 o 365 días) para obtener la fecha de fin del período anterior
         calendar.add(Calendar.DAY_OF_YEAR, when (period) {
             ReportPeriod.ONE_MONTH -> 30
             ReportPeriod.THREE_MONTHS -> 90

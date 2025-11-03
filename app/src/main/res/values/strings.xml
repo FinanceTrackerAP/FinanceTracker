@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">FinanceTracker</string>
 
@@ -25,4 +26,13 @@
     <string name="category_hu_description">Aquí se implementará la creación de nuevas categorías personalizadas y la administración de las existentes (Paso 1 y 2 de HU-003).</string>
     <string name="category_add_custom">Añadir Categoría Personalizada</string>
 
+    <!-- NUEVAS STRINGS PARA REPORTES (HU-006) -->
+    <string name="report_total_income">Ingresos Totales</string>
+    <string name="report_total_expense">Gastos Totales</string>
+    <string name="report_balance">Balance</string>
+    <string name="report_trends_title">Tendencias</string>
+    <string name="report_filter_1m">1M</string>
+    <string name="report_filter_3m">3M</string>
+    <string name="report_filter_1y">1Y</string>
+    <string name="report_export_pdf">Exportar a PDF</string>
 </resources>

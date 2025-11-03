@@ -26,6 +26,7 @@
 
     <!-- Contenido principal con scroll -->
     <androidx.core.widget.NestedScrollView
+        android:id="@+id/contentScrollView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
@@ -61,7 +62,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Ingresos Totales"
+                            android:text="@string/report_total_income"
                             android:textColor="@color/secondary_text"
                             android:textSize="12sp" />
 
@@ -107,7 +108,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Gastos Totales"
+                            android:text="@string/report_total_expense"
                             android:textColor="@color/secondary_text"
                             android:textSize="12sp" />
 
@@ -127,7 +128,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
                             android:text="↓ -2%"
-                            android:textColor="@color/success_color"
+                            android:textColor="@color/error_color"
                             android:textSize="12sp"
                             android:textStyle="bold" />
 
@@ -154,7 +155,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Balance"
+                            android:text="@string/report_balance"
                             android:textColor="@color/white"
                             android:textSize="12sp" />
 
@@ -185,7 +186,6 @@
             </LinearLayout>
 
             <!-- Sección de Tendencias -->
-            <!-- Sección de Tendencias con filtros en la misma línea -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -197,7 +197,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Tendencias"
+                    android:text="@string/report_trends_title"
                     android:textColor="@color/primary_text"
                     android:textSize="20sp"
                     android:textStyle="bold" />
@@ -209,7 +209,7 @@
                     android:layout_width="60dp"
                     android:layout_height="48dp"
                     android:layout_marginEnd="8dp"
-                    android:text="1M"
+                    android:text="@string/report_filter_1m"
                     android:textSize="12sp"
                     app:cornerRadius="18dp"
                     app:strokeColor="@color/primary_purple"
@@ -223,7 +223,7 @@
                     android:layout_width="60dp"
                     android:layout_height="48dp"
                     android:layout_marginEnd="8dp"
-                    android:text="3M"
+                    android:text="@string/report_filter_3m"
                     android:textSize="12sp"
                     app:cornerRadius="18dp"
                     app:strokeColor="@color/primary_purple"
@@ -236,7 +236,7 @@
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="60dp"
                     android:layout_height="48dp"
-                    android:text="1Y"
+                    android:text="@string/report_filter_1y"
                     android:textSize="12sp"
                     app:cornerRadius="18dp"
                     app:strokeColor="@color/primary_purple"
@@ -253,8 +253,20 @@
                 android:layout_height="300dp"
                 android:layout_marginTop="16dp" />
 
+            <!-- NUEVO BOTÓN PARA EXPORTAR PDF (HU-006.2) -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnExportPdf"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginTop="24dp"
+                android:text="@string/report_export_pdf"
+                android:textColor="@color/white"
+                android:backgroundTint="@color/primary_purple"
+                app:cornerRadius="12dp" />
+            <!-- FIN NUEVO BOTÓN -->
+
         </LinearLayout>
-     </androidx.core.widget.NestedScrollView>
+    </androidx.core.widget.NestedScrollView>
     <!-- ProgressBar para estado de carga -->
     <ProgressBar
         android:id="@+id/progressBar"

@@ -1,20 +1,27 @@
 package com.dam.financetracker.ui.reports
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.view.View
+import android.widget.Toast
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.dam.financetracker.R
 import com.dam.financetracker.databinding.ActivityReportsBinding
+import com.dam.financetracker.models.ReportPeriod
+import com.dam.financetracker.models.TransactionType
 import com.dam.financetracker.ui.dashboard.DashboardActivity
 import com.dam.financetracker.ui.settings.SettingsActivity
 import com.dam.financetracker.ui.transaction.TransactionActivity
-import com.dam.financetracker.models.TransactionType
-import com.dam.financetracker.models.ReportPeriod
+import com.dam.financetracker.utils.PdfGenerator // Importación necesaria
 import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
@@ -29,6 +36,17 @@ class ReportsActivity : AppCompatActivity() {
     private lateinit var binding: ActivityReportsBinding
     private val viewModel: ReportsViewModel by viewModels()
     private val currencyFormat = NumberFormat.getCurrencyInstance(Locale("es", "PE"))
+
+    // Launcher para la solicitud de permisos de escritura (necesario antes de Android 13)
+    private val requestPermissionLauncher: ActivityResultLauncher<String> =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
+            if (isGranted) {
+                // Permiso concedido, generar PDF
+                generatePdf()
+            } else {
+                Toast.makeText(this, "Permiso de almacenamiento denegado. No se puede guardar el PDF.", Toast.LENGTH_LONG).show()
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,6 +80,11 @@ class ReportsActivity : AppCompatActivity() {
             btnOneYear.setOnClickListener {
                 viewModel.changePeriod(ReportPeriod.ONE_YEAR)
                 updatePeriodButtons(ReportPeriod.ONE_YEAR)
+            }
+
+            // NUEVO: Listener para Exportar a PDF (HU-006.2)
+            btnExportPdf.setOnClickListener {
+                exportReportToPdf()
             }
 
             // Inicializar botón 1M como seleccionado
@@ -137,7 +160,8 @@ class ReportsActivity : AppCompatActivity() {
             // Card de Gastos Totales
             tvExpenseAmount.text = currencyFormat.format(reportData.totalExpense)
             tvExpensePercentage.text = formatPercentage(reportData.expensePercentage)
-            tvExpensePercentage.setTextColor(getPercentageColor(-reportData.expensePercentage)) // Negativo porque menos gasto es mejor
+            // Lógica HU-006.3: Negativo porque menos gasto es mejor
+            tvExpensePercentage.setTextColor(getPercentageColor(-reportData.expensePercentage))
 
             // Card de Balance
             tvBalanceAmount.text = currencyFormat.format(reportData.balance)
@@ -252,6 +276,55 @@ class ReportsActivity : AppCompatActivity() {
             }
         }
     }
+
+    /**
+     * Lógica principal para Exportar a PDF (Implementación real de HU-006.2)
+     */
+    private fun exportReportToPdf() {
+        val reportData = viewModel.reportData.value
+        val trendData = viewModel.trendData.value
+
+        // 1. Validación de datos mínimos
+        if (reportData.totalIncome == 0.0 && trendData.monthlyDataList.isEmpty()) {
+            Toast.makeText(this, "No hay datos para exportar en este período.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // 2. Manejo de Permisos (Obligatorio para guardar archivos en dispositivos antiguos)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R && ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            // Solicitar permiso
+            requestPermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        } else {
+            // Permiso concedido o no necesario (API 30+), proceder a la generación
+            generatePdf()
+        }
+    }
+
+    /**
+     * Función que ejecuta la generación real del PDF llamando a la clase utilitaria.
+     * Corregido para usar el ID explícito del NestedScrollView.
+     */
+    private fun generatePdf() {
+        // Buscar la vista por su ID, el cual es el contenedor scrollable de todo el reporte.
+        val nestedScrollView = binding.root.findViewById<androidx.core.widget.NestedScrollView>(R.id.contentScrollView)
+
+        if (nestedScrollView != null) {
+            // Usamos el NestedScrollView para capturar todo el contenido scrollable
+            PdfGenerator.generatePdfFromView(
+                this,
+                nestedScrollView,
+                "ReporteFinanciero_${viewModel.selectedPeriod.value.name}"
+            )
+        } else {
+            // Este Toast debería resolverse ahora que el ID está en el XML.
+            Toast.makeText(this, "Error: No se pudo encontrar la vista de contenido para exportar (ID: contentScrollView).", Toast.LENGTH_LONG).show()
+        }
+    }
+
 
     private fun formatPercentage(percentage: Double): String {
         val sign = if (percentage >= 0) "↑" else "↓"

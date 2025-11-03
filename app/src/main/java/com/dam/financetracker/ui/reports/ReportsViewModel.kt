@@ -14,11 +14,11 @@ class ReportsViewModel : ViewModel() {
 
     private val reportsRepository = ReportsRepository()
 
-    // Estados para los datos del reporte
+    // Estados para los datos del reporte (Métricas y Comparación HU-006.3)
     private val _reportData = MutableStateFlow(ReportData())
     val reportData: StateFlow<ReportData> = _reportData
 
-    // Estados para los datos del gráfico
+    // Estados para los datos del gráfico (Tendencias HU-006.1)
     private val _trendData = MutableStateFlow(TrendData())
     val trendData: StateFlow<TrendData> = _trendData
 
@@ -26,7 +26,7 @@ class ReportsViewModel : ViewModel() {
     private val _selectedPeriod = MutableStateFlow(ReportPeriod.ONE_MONTH)
     val selectedPeriod: StateFlow<ReportPeriod> = _selectedPeriod
 
-    // Estado de carga
+    // Estado de carga (para el ProgressBar)
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
@@ -45,31 +45,31 @@ class ReportsViewModel : ViewModel() {
     fun loadReportData(period: ReportPeriod) {
         viewModelScope.launch {
             try {
-                _isLoading.value = true
+                _isLoading.value = true // Mostrar ProgressBar
                 _error.value = null
                 _selectedPeriod.value = period
 
-                // Cargar datos de métricas y tendencias en paralelo
+                // Llama al repositorio para obtener ambos conjuntos de datos
                 val reportData = reportsRepository.getMonthlyReport(period)
                 val trendData = reportsRepository.getTrendData(period)
 
-                _reportData.value = reportData
-                _trendData.value = trendData
+                _reportData.value = reportData // Contiene las métricas y porcentajes de cambio
+                _trendData.value = trendData // Contiene los datos punto a punto para el gráfico
 
             } catch (e: Exception) {
                 _error.value = "Error al cargar datos: ${e.message}"
             } finally {
-                _isLoading.value = false
+                _isLoading.value = false // Ocultar ProgressBar al finalizar
             }
         }
     }
 
     /**
-     * Cambia el período del reporte
+     * Cambia el período del reporte (invocado por los botones de la Activity)
      */
     fun changePeriod(period: ReportPeriod) {
         if (_selectedPeriod.value != period) {
-            loadReportData(period)
+            loadReportData(period) // Recarga los datos solo si el período es diferente
         }
     }
 
