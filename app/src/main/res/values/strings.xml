@@ -2,7 +2,6 @@
 <resources>
     <string name="app_name">FinanceTracker</string>
 
-    <!-- Strings para Settings/Perfil (HU-003) -->
     <string name="settings_title">Configuración de Cuenta</string>
     <string name="settings_profile_section">Perfil y Negocio</string>
     <string name="settings_business_id">ID Negocio: %s</string>
@@ -13,20 +12,18 @@
     <string name="settings_security_section">Seguridad</string>
     <string name="settings_logout">Cerrar Sesión</string>
 
-    <!-- Mensajes de errores y estados -->
     <string name="error_session">Error de sesión</string>
     <string name="error_login_prompt">Por favor, vuelve a iniciar sesión</string>
     <string name="session_closed_message">Sesión cerrada</string>
     <string name="feature_in_development">Funcionalidad en desarrollo</string>
     <string name="error_loading_profile">Error al cargar datos de perfil</string>
 
-    <!-- Strings para Categorías -->
     <string name="category_management_title">Administrar Categorías</string>
     <string name="category_hu_title">Gestión de Categorías (HU-003)</string>
     <string name="category_hu_description">Aquí se implementará la creación de nuevas categorías personalizadas y la administración de las existentes (Paso 1 y 2 de HU-003).</string>
     <string name="category_add_custom">Añadir Categoría Personalizada</string>
 
-    <!-- NUEVAS STRINGS PARA REPORTES (HU-006) -->
+    <string name="report_toolbar_title">Reportes</string>
     <string name="report_total_income">Ingresos Totales</string>
     <string name="report_total_expense">Gastos Totales</string>
     <string name="report_balance">Balance</string>
@@ -35,4 +32,12 @@
     <string name="report_filter_3m">3M</string>
     <string name="report_filter_1y">1Y</string>
     <string name="report_export_pdf">Exportar a PDF</string>
+    <string name="report_export_csv">Exportar a CSV</string>
+    <string name="report_period_title">Período del Reporte</string>
+    <string name="report_custom_range_title">Rango de fechas personalizado</string>
+    <string name="report_select_date_range_placeholder">Selecciona fecha de inicio y término</string>
+    <string name="report_period_previous_title">Período Anterior</string>
+    <string name="report_period_previous_placeholder">Periodo Anterior</string>
+    <string name="report_generate">Generar Reporte</string>
+
 </resources>

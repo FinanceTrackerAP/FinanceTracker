@@ -1,11 +1,14 @@
 package com.dam.financetracker.ui.reports
 
 import android.Manifest
+import android.app.DatePickerDialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.view.View
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
@@ -21,21 +24,32 @@ import com.dam.financetracker.models.TransactionType
 import com.dam.financetracker.ui.dashboard.DashboardActivity
 import com.dam.financetracker.ui.settings.SettingsActivity
 import com.dam.financetracker.ui.transaction.TransactionActivity
-import com.dam.financetracker.utils.PdfGenerator // Importación necesaria
+import com.dam.financetracker.utils.PdfGenerator
 import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
 import com.github.mikephil.charting.formatter.ValueFormatter
 import kotlinx.coroutines.launch
+import java.io.File
+import java.io.FileOutputStream
 import java.text.NumberFormat
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
 import java.util.Locale
+import kotlin.math.abs
 
 class ReportsActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityReportsBinding
     private val viewModel: ReportsViewModel by viewModels()
     private val currencyFormat = NumberFormat.getCurrencyInstance(Locale("es", "PE"))
+    private val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+
+    // Variables temporales para el Rango de Fechas Personalizado
+    private var rangeStartDate: Long? = null
+    private var rangeEndDate: Long? = null
 
     // Launcher para la solicitud de permisos de escritura (necesario antes de Android 13)
     private val requestPermissionLauncher: ActivityResultLauncher<String> =
@@ -47,6 +61,18 @@ class ReportsActivity : AppCompatActivity() {
                 Toast.makeText(this, "Permiso de almacenamiento denegado. No se puede guardar el PDF.", Toast.LENGTH_LONG).show()
             }
         }
+
+    // Launcher para la solicitud de permisos de escritura para CSV
+    private val requestPermissionCsvLauncher: ActivityResultLauncher<String> =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
+            if (isGranted) {
+                // Permiso concedido, generar CSV
+                generateCsv()
+            } else {
+                Toast.makeText(this, "Permiso de almacenamiento denegado. No se puede guardar el CSV.", Toast.LENGTH_LONG).show()
+            }
+        }
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -61,12 +87,9 @@ class ReportsActivity : AppCompatActivity() {
 
     private fun setupViews() {
         binding.apply {
-            // Configurar toolbar
-            toolbar.setNavigationOnClickListener {
-                finish()
-            }
+            toolbar.setNavigationOnClickListener { finish() }
 
-            // Configurar filtros de período
+            // Configurar filtros de período (1M, 3M, 1Y)
             btnOneMonth.setOnClickListener {
                 viewModel.changePeriod(ReportPeriod.ONE_MONTH)
                 updatePeriodButtons(ReportPeriod.ONE_MONTH)
@@ -83,11 +106,23 @@ class ReportsActivity : AppCompatActivity() {
             }
 
             // NUEVO: Listener para Exportar a PDF (HU-006.2)
-            btnExportPdf.setOnClickListener {
-                exportReportToPdf()
+            btnExportPdf.setOnClickListener { exportReportToPdf() }
+
+            // NUEVO: Listener para Exportar a CSV
+            btnExportCsv.setOnClickListener { exportReportToCsv() }
+
+            // NUEVO: Listener para selector de Rango de Fechas Personalizado
+            btnSelectDateRange.setOnClickListener {
+                // LLAMADA A LA LÓGICA DE SELECCIÓN DE RANGO DE DOS PASOS
+                showDateRangePicker()
             }
 
-            // Inicializar botón 1M como seleccionado
+            // NUEVO: Listener para Generar Reporte (para rangos personalizados)
+            btnGenerateReport.setOnClickListener {
+                Toast.makeText(this@ReportsActivity, "Generando reporte para período personalizado...", Toast.LENGTH_SHORT).show()
+            }
+
+
             updatePeriodButtons(ReportPeriod.ONE_MONTH)
         }
     }
@@ -97,31 +132,24 @@ class ReportsActivity : AppCompatActivity() {
             description.isEnabled = false
             setTouchEnabled(true)
             isDragEnabled = true
-            setScaleEnabled(true)  // Cambiar a true para poder hacer zoom
-            setPinchZoom(true)     // Cambiar a true
+            setScaleEnabled(true)
+            setPinchZoom(true)
             setDrawGridBackground(false)
 
-            // Configurar eje X
             xAxis.apply {
                 position = XAxis.XAxisPosition.BOTTOM
                 setDrawGridLines(false)
                 granularity = 1f
                 textColor = Color.GRAY
-                labelRotationAngle = -45f  // NUEVO: Rotar etiquetas para que quepan
-                labelCount = 5              // NUEVO: Máximo 5 etiquetas visibles
+                labelRotationAngle = -45f
+                labelCount = 5
             }
-
-            // Configurar eje Y izquierdo
             axisLeft.apply {
                 setDrawGridLines(true)
                 gridColor = Color.LTGRAY
                 textColor = Color.GRAY
             }
-
-            // Deshabilitar eje Y derecho
             axisRight.isEnabled = false
-
-            // Configurar leyenda
             legend.textColor = Color.DKGRAY
             legend.textSize = 12f
         }
@@ -129,44 +157,37 @@ class ReportsActivity : AppCompatActivity() {
 
     private fun observeViewModel() {
         lifecycleScope.launch {
-            // Observar datos del reporte
-            viewModel.reportData.collect { reportData ->
-                updateMetricsCards(reportData)
-            }
+            viewModel.reportData.collect { reportData -> updateMetricsCards(reportData) }
         }
-
         lifecycleScope.launch {
-            // Observar datos del gráfico
-            viewModel.trendData.collect { trendData ->
-                updateChart(trendData)
-            }
+            viewModel.trendData.collect { trendData -> updateChart(trendData) }
         }
-
         lifecycleScope.launch {
-            // Observar estado de carga
             viewModel.isLoading.collect { isLoading ->
                 binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
             }
         }
     }
 
+    /**
+     * [CORREGIDO] Actualiza las métricas y aplica la lógica de color para Ingresos/Gastos.
+     */
     private fun updateMetricsCards(reportData: com.dam.financetracker.models.ReportData) {
         binding.apply {
-            // Card de Ingresos Totales
+            // Card 1: Ingresos Totales (Positivo = Bueno, Negativo = Malo)
             tvIncomeAmount.text = currencyFormat.format(reportData.totalIncome)
             tvIncomePercentage.text = formatPercentage(reportData.incomePercentage)
-            tvIncomePercentage.setTextColor(getPercentageColor(reportData.incomePercentage))
+            tvIncomePercentage.setTextColor(getPositiveColor(reportData.incomePercentage))
 
-            // Card de Gastos Totales
+            // Card 2: Gastos Totales (Negativo = Bueno, Positivo = Malo)
             tvExpenseAmount.text = currencyFormat.format(reportData.totalExpense)
             tvExpensePercentage.text = formatPercentage(reportData.expensePercentage)
-            // Lógica HU-006.3: Negativo porque menos gasto es mejor
-            tvExpensePercentage.setTextColor(getPercentageColor(-reportData.expensePercentage))
+            tvExpensePercentage.setTextColor(getNegativeColor(reportData.expensePercentage)) // Usa la lógica inversa
 
-            // Card de Balance
+            // Card 3: Balance (Positivo = Bueno, Negativo = Malo)
             tvBalanceAmount.text = currencyFormat.format(reportData.balance)
             tvBalancePercentage.text = formatPercentage(reportData.balancePercentage)
-            tvBalancePercentage.setTextColor(getPercentageColor(reportData.balancePercentage))
+            tvBalancePercentage.setTextColor(getPositiveColor(reportData.balancePercentage))
         }
     }
 
@@ -191,9 +212,6 @@ class ReportsActivity : AppCompatActivity() {
             color = ContextCompat.getColor(this@ReportsActivity, R.color.primary_purple)
             setCircleColor(ContextCompat.getColor(this@ReportsActivity, R.color.primary_purple))
             lineWidth = 3f
-            circleRadius = 5f
-            setDrawCircleHole(false)
-            valueTextSize = 10f
             setDrawFilled(false)
             mode = LineDataSet.Mode.CUBIC_BEZIER
         }
@@ -203,9 +221,6 @@ class ReportsActivity : AppCompatActivity() {
             color = ContextCompat.getColor(this@ReportsActivity, R.color.success_color)
             setCircleColor(ContextCompat.getColor(this@ReportsActivity, R.color.success_color))
             lineWidth = 3f
-            circleRadius = 5f
-            setDrawCircleHole(false)
-            valueTextSize = 10f
             setDrawFilled(false)
             mode = LineDataSet.Mode.CUBIC_BEZIER
         }
@@ -214,47 +229,50 @@ class ReportsActivity : AppCompatActivity() {
 
         binding.lineChart.apply {
             data = lineData
-
-            // Configurar etiquetas del eje X - MEJORADO
             xAxis.apply {
                 valueFormatter = object : ValueFormatter() {
-                    override fun getFormattedValue(value: Float): String {
-                        return labels.getOrNull(value.toInt()) ?: ""
-                    }
+                    override fun getFormattedValue(value: Float): String { return labels.getOrNull(value.toInt()) ?: "" }
                 }
-                labelCount = labels.size.coerceAtMost(6)  // Máximo 6 etiquetas
-                granularity = 1f
-                position = XAxis.XAxisPosition.BOTTOM
-                setDrawGridLines(false)
-                textColor = Color.GRAY
-                textSize = 10f
+                labelCount = labels.size.coerceAtMost(6)
             }
-
             animateX(1000)
             invalidate()
         }
     }
 
+    /**
+     * [CRÍTICO - REINCORPORADO] Lógica para actualizar el estilo de los botones de período.
+     * Esta función causaba el error "Unresolved reference".
+     */
     private fun updatePeriodButtons(selectedPeriod: ReportPeriod) {
         binding.apply {
             // Resetear todos los botones a estado normal
             btnOneMonth.apply {
+                @Suppress("DEPRECATION")
                 strokeWidth = 2
+                @Suppress("DEPRECATION")
                 strokeColor = getColorStateList(R.color.primary_purple)
+                @Suppress("DEPRECATION")
                 setTextColor(getColor(R.color.primary_purple))
                 backgroundTintList = null
             }
 
             btnThreeMonths.apply {
+                @Suppress("DEPRECATION")
                 strokeWidth = 2
+                @Suppress("DEPRECATION")
                 strokeColor = getColorStateList(R.color.primary_purple)
+                @Suppress("DEPRECATION")
                 setTextColor(getColor(R.color.primary_purple))
                 backgroundTintList = null
             }
 
             btnOneYear.apply {
+                @Suppress("DEPRECATION")
                 strokeWidth = 2
+                @Suppress("DEPRECATION")
                 strokeColor = getColorStateList(R.color.primary_purple)
+                @Suppress("DEPRECATION")
                 setTextColor(getColor(R.color.primary_purple))
                 backgroundTintList = null
             }
@@ -262,15 +280,21 @@ class ReportsActivity : AppCompatActivity() {
             // Aplicar estilo al botón seleccionado
             when (selectedPeriod) {
                 ReportPeriod.ONE_MONTH -> btnOneMonth.apply {
+                    @Suppress("DEPRECATION")
                     backgroundTintList = getColorStateList(R.color.primary_purple)
+                    @Suppress("DEPRECATION")
                     setTextColor(getColor(R.color.white))
                 }
                 ReportPeriod.THREE_MONTHS -> btnThreeMonths.apply {
+                    @Suppress("DEPRECATION")
                     backgroundTintList = getColorStateList(R.color.primary_purple)
+                    @Suppress("DEPRECATION")
                     setTextColor(getColor(R.color.white))
                 }
                 ReportPeriod.ONE_YEAR -> btnOneYear.apply {
+                    @Suppress("DEPRECATION")
                     backgroundTintList = getColorStateList(R.color.primary_purple)
+                    @Suppress("DEPRECATION")
                     setTextColor(getColor(R.color.white))
                 }
             }
@@ -278,66 +302,170 @@ class ReportsActivity : AppCompatActivity() {
     }
 
     /**
-     * Lógica principal para Exportar a PDF (Implementación real de HU-006.2)
+     * [NUEVA FUNCIÓN] Implementa un selector de rango de fechas encadenando dos DatePickers.
+     */
+    private fun showDateRangePicker() {
+        val calendar = Calendar.getInstance()
+
+        // 1. Mostrar selector para FECHA DE INICIO
+        val startDatePicker = DatePickerDialog(this, { _, year, month, dayOfMonth ->
+            // Guarda la fecha de inicio
+            rangeStartDate = Calendar.getInstance().apply { set(year, month, dayOfMonth, 0, 0, 0) }.timeInMillis
+
+            // 2. Mostrar selector para FECHA DE FIN inmediatamente después
+            val endDatePicker = DatePickerDialog(this, { _, yearEnd, monthEnd, dayOfMonthEnd ->
+                // Guarda la fecha de fin
+                rangeEndDate = Calendar.getInstance().apply { set(yearEnd, monthEnd, dayOfMonthEnd, 23, 59, 59) }.timeInMillis
+
+                // 3. Actualizar UI
+                val startText = dateFormat.format(Date(rangeStartDate!!))
+                val endText = dateFormat.format(Date(rangeEndDate!!))
+                binding.btnSelectDateRange.text = "$startText - $endText"
+
+                Toast.makeText(this, "Rango Seleccionado.", Toast.LENGTH_SHORT).show()
+
+            }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH))
+
+            // Asegura que la fecha de fin sea posterior o igual a la de inicio
+            rangeStartDate?.let { endDatePicker.datePicker.minDate = it }
+            endDatePicker.setTitle("Seleccionar Fecha de Término")
+            endDatePicker.show()
+
+        }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH))
+
+        startDatePicker.setTitle("Seleccionar Fecha de Inicio")
+        startDatePicker.show()
+    }
+
+    /**
+     * Lógica principal para Exportar a PDF (HU-006.2)
      */
     private fun exportReportToPdf() {
         val reportData = viewModel.reportData.value
         val trendData = viewModel.trendData.value
 
-        // 1. Validación de datos mínimos
         if (reportData.totalIncome == 0.0 && trendData.monthlyDataList.isEmpty()) {
-            Toast.makeText(this, "No hay datos para exportar en este período.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "No hay datos para exportar.", Toast.LENGTH_SHORT).show()
             return
         }
-
-        // 2. Manejo de Permisos (Obligatorio para guardar archivos en dispositivos antiguos)
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R && ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            // Solicitar permiso
+                this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
             requestPermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
         } else {
-            // Permiso concedido o no necesario (API 30+), proceder a la generación
             generatePdf()
         }
     }
 
     /**
+     * Lógica principal para Exportar a CSV (Nueva función)
+     */
+    private fun exportReportToCsv() {
+        val reportData = viewModel.reportData.value
+        val trendData = viewModel.trendData.value
+
+        if (reportData.totalIncome == 0.0 && trendData.monthlyDataList.isEmpty()) {
+            Toast.makeText(this, "No hay datos para exportar.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R && ContextCompat.checkSelfPermission(
+                this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissionCsvLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        } else {
+            generateCsv()
+        }
+    }
+
+    /**
      * Función que ejecuta la generación real del PDF llamando a la clase utilitaria.
-     * Corregido para usar el ID explícito del NestedScrollView.
      */
     private fun generatePdf() {
-        // Buscar la vista por su ID, el cual es el contenedor scrollable de todo el reporte.
         val nestedScrollView = binding.root.findViewById<androidx.core.widget.NestedScrollView>(R.id.contentScrollView)
-
         if (nestedScrollView != null) {
-            // Usamos el NestedScrollView para capturar todo el contenido scrollable
             PdfGenerator.generatePdfFromView(
                 this,
                 nestedScrollView,
                 "ReporteFinanciero_${viewModel.selectedPeriod.value.name}"
             )
         } else {
-            // Este Toast debería resolverse ahora que el ID está en el XML.
-            Toast.makeText(this, "Error: No se pudo encontrar la vista de contenido para exportar (ID: contentScrollView).", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Error: No se pudo encontrar la vista de contenido para exportar.", Toast.LENGTH_LONG).show()
         }
     }
 
+    /**
+     * Función que genera el contenido CSV y lo guarda, y luego intenta abrirlo.
+     */
+    private fun generateCsv() {
+        lifecycleScope.launch {
+            try {
+                // LLAMADA AL MÉTODO PÚBLICO DEL VIEWMODEL
+                val csvContent = viewModel.getCsvForCurrentPeriod()
 
-    private fun formatPercentage(percentage: Double): String {
-        val sign = if (percentage >= 0) "↑" else "↓"
-        return "$sign ${String.format("%.1f", kotlin.math.abs(percentage))}%"
+                if (csvContent.isBlank()) {
+                    Toast.makeText(this@ReportsActivity, "No se encontraron transacciones para exportar.", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+
+                val fileName = "Transacciones_${viewModel.selectedPeriod.value.name}_${SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())}.csv"
+
+                @Suppress("DEPRECATION")
+                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                val file = File(downloadsDir, fileName)
+
+                FileOutputStream(file).use { out ->
+                    out.write(csvContent.toByteArray(Charsets.UTF_8))
+                }
+
+                Toast.makeText(this@ReportsActivity, "CSV guardado exitosamente en: Downloads/$fileName", Toast.LENGTH_LONG).show()
+
+                // SOLUCIÓN PARA ABRIR CSV: Lanzar Intent
+                val fileUri = Uri.fromFile(file)
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(fileUri, "text/csv")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                startActivity(intent)
+
+            } catch (e: Exception) {
+                Toast.makeText(this@ReportsActivity, "Error al guardar CSV: ${e.message}", Toast.LENGTH_LONG).show()
+                e.printStackTrace()
+            }
+        }
     }
 
-    private fun getPercentageColor(percentage: Double): Int {
+    /**
+     * [CORREGIDO - CRÍTICO] Limita el porcentaje a 100% (o -100%) para la visualización.
+     */
+    private fun formatPercentage(percentage: Double): String {
+        val rawAbsValue = abs(percentage)
+
+        // Limitar el valor mostrado a 100.0 si es mayor.
+        val displayedValue = if (rawAbsValue > 100.0) 100.0 else rawAbsValue
+
+        val sign = if (percentage >= 0) "↑" else "↓"
+
+        // Usamos Locale.US para asegurar el punto decimal y evitar el uso de la coma.
+        return String.format(Locale.US, "%s %.1f%%", sign, displayedValue)
+    }
+
+    // [CORREGIDO] Determina el color para un valor positivo (Ingresos/Balance).
+    private fun getPositiveColor(percentage: Double): Int {
         return if (percentage >= 0) {
             ContextCompat.getColor(this, R.color.success_color)
         } else {
             ContextCompat.getColor(this, R.color.error_color)
         }
     }
+
+    // [CORREGIDO] Determina el color para un valor negativo (Gastos).
+    private fun getNegativeColor(percentage: Double): Int {
+        return if (percentage <= 0) { // Menos gasto (negativo) es BUENO (verde)
+            ContextCompat.getColor(this, R.color.success_color)
+        } else { // Más gasto (positivo) es MALO (rojo)
+            ContextCompat.getColor(this, R.color.error_color)
+        }
+    }
+
 
     private fun setupBottomNavigation() {
         // Acceder al BottomNavigationView a través del include

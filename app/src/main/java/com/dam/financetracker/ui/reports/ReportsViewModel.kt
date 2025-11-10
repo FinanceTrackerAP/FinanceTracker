@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 
 class ReportsViewModel : ViewModel() {
 
+    // Instancia del Repositorio
     private val reportsRepository = ReportsRepository()
 
     // Estados para los datos del reporte (Métricas y Comparación HU-006.3)
@@ -37,6 +38,14 @@ class ReportsViewModel : ViewModel() {
     init {
         // Cargar datos iniciales con período de 1 mes
         loadReportData(ReportPeriod.ONE_MONTH)
+    }
+
+    /**
+     * [NUEVO MÉTODO] Wrapper público para la función de exportación a CSV.
+     * La Activity llama a este método para obtener el contenido CSV del repositorio.
+     */
+    suspend fun getCsvForCurrentPeriod(): String {
+        return reportsRepository.getTransactionsAsCsv(selectedPeriod.value)
     }
 
     /**

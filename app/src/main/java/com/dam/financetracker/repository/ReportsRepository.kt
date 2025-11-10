@@ -7,6 +7,7 @@ import com.dam.financetracker.models.TrendData
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
+import java.text.SimpleDateFormat
 import java.util.*
 
 class ReportsRepository {
@@ -14,9 +15,12 @@ class ReportsRepository {
     private val firestore = FirebaseFirestore.getInstance()
     private val firebaseAuth = FirebaseAuth.getInstance()
 
+    // Formato de fecha para CSV
+    private val csvDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+
+
     /**
      * Obtiene el reporte financiero para el período especificado
-     * (Implementa HU-006.3: Comparar períodos)
      */
     suspend fun getMonthlyReport(period: ReportPeriod): ReportData {
         return try {
@@ -24,10 +28,10 @@ class ReportsRepository {
 
             // 1. Obtener datos del período actual
             val (startDate, endDate) = getDateRangeForPeriod(period)
-            
+
             val currentTransactions = getTransactionsForPeriod(currentUserId, startDate, endDate)
 
-            
+
             val currentIncome = currentTransactions
                 .filter { it["type"] == "INCOME" }
                 .sumOf { (it["amount"] as? Number)?.toDouble() ?: 0.0 }
@@ -40,10 +44,10 @@ class ReportsRepository {
 
             // 2. Obtener datos del período anterior (para comparación)
             val (previousStartDate, previousEndDate) = getPreviousDateRange(period)
-            
+
             val previousTransactions = getTransactionsForPeriod(currentUserId, previousStartDate, previousEndDate)
 
-           
+
             val previousIncome = previousTransactions
                 .filter { it["type"] == "INCOME" }
                 .sumOf { (it["amount"] as? Number)?.toDouble() ?: 0.0 }
@@ -75,7 +79,6 @@ class ReportsRepository {
 
     /**
      * Obtiene los datos de tendencias agrupados por día
-     * (Implementa HU-006.1: Reporte con gráficos de tendencias)
      */
     suspend fun getTrendData(period: ReportPeriod): TrendData {
         return try {
@@ -116,7 +119,7 @@ class ReportsRepository {
                 .sortedBy { it.key }
                 .map { (key, values) ->
                     val parts = key.split("-")
-                    
+
                     val month = parts[1].toInt()
                     val day = parts[2].toInt()
 
@@ -150,6 +153,45 @@ class ReportsRepository {
     }
 
     /**
+     * Obtiene las transacciones en formato CSV (Exportación HU-006.2)
+     */
+    suspend fun getTransactionsAsCsv(period: ReportPeriod): String {
+        return try {
+            val currentUserId = firebaseAuth.currentUser?.uid ?: return ""
+
+            val (startDate, endDate) = getDateRangeForPeriod(period)
+            val transactions = getTransactionsForPeriod(currentUserId, startDate, endDate)
+
+            if (transactions.isEmpty()) return ""
+
+            val csvBuilder = StringBuilder()
+
+            // Encabezado CSV
+            csvBuilder.append("ID,Tipo,Monto,Descripcion,Categoria,Fecha\n")
+
+            // Filas de datos
+            transactions.forEach { transaction ->
+                val id = transaction["id"] ?: ""
+                val type = transaction["type"] ?: ""
+                val amount = transaction["amount"] ?: 0.0
+                val description = transaction["description"]?.toString()?.replace(",", ";") ?: ""
+                val category = transaction["category"]?.toString()?.replace(",", ";") ?: ""
+                val dateLong = (transaction["date"] as? Long) ?: 0L
+
+                val dateString = if (dateLong > 0) csvDateFormat.format(Date(dateLong)) else ""
+
+                csvBuilder.append("$id,$type,$amount,\"$description\",\"$category\",$dateString\n")
+            }
+
+            csvBuilder.toString()
+
+        } catch (e: Exception) {
+            android.util.Log.e("ReportsRepository", "Error in getTransactionsAsCsv: ${e.message}")
+            ""
+        }
+    }
+
+    /**
      * Convierte número de mes a nombre abreviado de 3 letras
      */
     private fun getMonthNameShort(monthNumber: Int): String {
@@ -158,6 +200,19 @@ class ReportsRepository {
             "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
         )
         return months.getOrNull(monthNumber) ?: "Mes"
+    }
+
+    /**
+     * Calcula el porcentaje de cambio entre dos valores
+     * CORREGIDO: Manejo de división por cero y lógica para reportar 100% cuando previous es 0.
+     */
+    private fun calculatePercentageChange(previous: Double, current: Double): Double {
+        return when {
+            // Si el valor anterior es 0, y el actual es > 0, reportamos 100% (o más, pero capped en 100% visualmente). Si el actual es 0, no hay cambio (0%).
+            previous == 0.0 -> if (current > 0) 100.0 else 0.0
+            // Cálculo estándar
+            else -> ((current - previous) / previous) * 100
+        }
     }
 
     /**
@@ -176,7 +231,7 @@ class ReportsRepository {
                 .get()
                 .await()
 
-            
+
             val allTransactions = snapshot.documents.mapNotNull { it.data }
 
             // 2. Obtener businessId del usuario para filtrar
@@ -197,17 +252,6 @@ class ReportsRepository {
         } catch (e: Exception) {
             android.util.Log.e("ReportsRepository", "Error: ${e.message}")
             emptyList()
-        }
-    }
-
-    /**
-     * Calcula el porcentaje de cambio entre dos valores
-     */
-    private fun calculatePercentageChange(previous: Double, current: Double): Double {
-        return if (previous == 0.0) {
-            if (current > 0) 100.0 else 0.0
-        } else {
-            ((current - previous) / previous) * 100
         }
     }
 
