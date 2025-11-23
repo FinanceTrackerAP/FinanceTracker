@@ -17,4 +17,3 @@
         android:icon="@drawable/ic_settings"
         android:title="Ajustes" />
 </menu>
-

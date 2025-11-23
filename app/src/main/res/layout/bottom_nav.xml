@@ -8,5 +8,4 @@
     app:itemIconTint="@color/primary_purple"
     app:itemTextColor="@color/primary_purple"
     app:menu="@menu/menu_bottom_nav" />
-
-
+    

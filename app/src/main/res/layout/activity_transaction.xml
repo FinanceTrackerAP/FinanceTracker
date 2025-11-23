@@ -8,7 +8,6 @@
     android:background="@color/white"
     tools:context=".ui.transaction.TransactionActivity">
 
-    <!-- TopBar -->
     <include
         android:id="@+id/topBar"
         layout="@layout/top_bar" />
@@ -25,7 +24,6 @@
             android:orientation="vertical"
             android:padding="24dp">
 
-            <!-- Título -->
             <TextView
                 android:id="@+id/tvTitle"
                 android:layout_width="wrap_content"
@@ -36,7 +34,6 @@
                 android:textStyle="bold"
                 android:layout_marginBottom="16dp" />
 
-            <!-- Toggle Ingreso/Gasto -->
             <LinearLayout
                 android:id="@+id/toggleType"
                 android:layout_width="match_parent"
@@ -76,7 +73,6 @@
 
             </LinearLayout>
 
-            <!-- Monto -->
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/tilAmount"
                 android:layout_width="match_parent"
@@ -98,7 +94,6 @@
 
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- Descripción -->
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/tilDescription"
                 android:layout_width="match_parent"
@@ -122,7 +117,6 @@
 
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- Categoría -->
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/tilCategory"
                 android:layout_width="match_parent"
@@ -145,7 +139,6 @@
 
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- Fecha -->
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/tilDate"
                 android:layout_width="match_parent"
@@ -171,7 +164,6 @@
 
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- Progress Bar -->
             <ProgressBar
                 android:id="@+id/progressBar"
                 android:layout_width="wrap_content"
@@ -181,7 +173,6 @@
                 android:visibility="gone"
                 android:indeterminateTint="@color/primary_purple" />
 
-            <!-- Botones -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -201,7 +192,6 @@
 
     </ScrollView>
 
-    <!-- Bottom Navigation -->
     <include
         android:id="@+id/bottomNavigation"
         layout="@layout/bottom_nav" />
