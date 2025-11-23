@@ -9,7 +9,11 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.dam.financetracker.databinding.ActivityLoginBinding
 import com.dam.financetracker.models.AuthResult
+import com.dam.financetracker.models.UserRole
+import com.dam.financetracker.repository.AuthRepository
 import com.dam.financetracker.ui.dashboard.DashboardActivity
+import com.dam.financetracker.ui.reports.ReportsActivity
+import com.dam.financetracker.utils.RoleManager
 import com.dam.financetracker.utils.ValidationUtils
 import kotlinx.coroutines.launch
 
@@ -17,6 +21,7 @@ class LoginActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityLoginBinding
     private val viewModel: AuthViewModel by viewModels()
+    private val authRepository = AuthRepository()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -104,8 +109,23 @@ class LoginActivity : AppCompatActivity() {
                     is AuthResult.Success -> {
                         showLoading(false)
                         Toast.makeText(this@LoginActivity, "Bienvenido", Toast.LENGTH_SHORT).show()
-                        startActivity(Intent(this@LoginActivity, DashboardActivity::class.java))
-                        finish()
+                        
+                        // HU-008: Redirigir según el rol del usuario
+                        lifecycleScope.launch {
+                            val user = authRepository.getCurrentUser()
+                            val userRole = user?.role ?: UserRole.OWNER
+                            
+                            val intent = if (userRole == UserRole.ACCOUNTANT) {
+                                // Contador va directo a Reportes
+                                Intent(this@LoginActivity, ReportsActivity::class.java)
+                            } else {
+                                // Owner y Empleado van al Dashboard
+                                Intent(this@LoginActivity, DashboardActivity::class.java)
+                            }
+                            
+                            startActivity(intent)
+                            finish()
+                        }
                     }
                     is AuthResult.Error -> {
                         showLoading(false)

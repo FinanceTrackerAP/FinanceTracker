@@ -16,10 +16,13 @@ import com.dam.financetracker.R
 import com.dam.financetracker.databinding.ActivityTransactionHistoryBinding
 import com.dam.financetracker.models.Transaction
 import com.dam.financetracker.models.TransactionType
+import com.dam.financetracker.models.UserRole
+import com.dam.financetracker.repository.AuthRepository
 import com.dam.financetracker.ui.dashboard.DashboardActivity
 import com.dam.financetracker.ui.dashboard.TransactionAdapter
 import com.dam.financetracker.ui.reports.ReportsActivity
 import com.dam.financetracker.ui.settings.SettingsActivity
+import com.dam.financetracker.utils.RoleManager
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
@@ -33,6 +36,9 @@ class TransactionHistoryActivity : AppCompatActivity() {
     private lateinit var binding: ActivityTransactionHistoryBinding
     private val viewModel: TransactionViewModel by viewModels()
     private lateinit var adapter: TransactionAdapter
+    
+    private val authRepository = AuthRepository()
+    private var currentUserRole: UserRole = UserRole.OWNER
     
     private val currencyFormat = NumberFormat.getCurrencyInstance(Locale("es", "PE"))
     private val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale("es", "PE"))
@@ -50,7 +56,13 @@ class TransactionHistoryActivity : AppCompatActivity() {
         setupRecyclerView()
         setupFilters()
         setupObservers()
-        setupBottomNavigation()
+        
+        // HU-007 y HU-008: Configurar según rol
+        lifecycleScope.launch {
+            val user = authRepository.getCurrentUser()
+            currentUserRole = user?.role ?: UserRole.OWNER
+            setupBottomNavigation()
+        }
     }
 
     private fun setupTopBar() {
@@ -66,7 +78,17 @@ class TransactionHistoryActivity : AppCompatActivity() {
 
     private fun setupRecyclerView() {
         adapter = TransactionAdapter { transaction ->
-            openTransactionForEdit(transaction)
+            // HU-007 y HU-008: Solo permitir editar si tiene permisos
+            if (RoleManager.canEditTransactions(currentUserRole)) {
+                openTransactionForEdit(transaction)
+            } else {
+                // HU-008: Contador solo puede ver
+                android.widget.Toast.makeText(
+                    this,
+                    "No tienes permisos para editar transacciones",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+            }
         }
         
         binding.rvFilteredTransactions.apply {
@@ -219,12 +241,15 @@ class TransactionHistoryActivity : AppCompatActivity() {
     }
 
     private fun setupBottomNavigation() {
-        // No seleccionar ningún item inicialmente
-        binding.bottomNavigation.bottomNavigation.menu.setGroupCheckable(0, true, false)
-        for (i in 0 until binding.bottomNavigation.bottomNavigation.menu.size()) {
-            binding.bottomNavigation.bottomNavigation.menu.getItem(i).isChecked = false
-        }
-        binding.bottomNavigation.bottomNavigation.menu.setGroupCheckable(0, true, true)
+        val menu = binding.bottomNavigation.bottomNavigation.menu
+        
+        // HU-007 y HU-008: Ocultar opciones según el rol
+        menu.findItem(R.id.nav_home)?.isVisible = RoleManager.canAccessDashboard(currentUserRole)
+        menu.findItem(R.id.nav_reports)?.isVisible = RoleManager.canAccessReports(currentUserRole)
+        menu.findItem(R.id.nav_settings)?.isVisible = RoleManager.canAccessSettings(currentUserRole)
+        
+        // Seleccionar el tab de transacciones
+        binding.bottomNavigation.bottomNavigation.selectedItemId = R.id.nav_transactions
         
         binding.bottomNavigation.bottomNavigation.setOnItemSelectedListener { item ->
             when (item.itemId) {
@@ -238,13 +263,17 @@ class TransactionHistoryActivity : AppCompatActivity() {
                     true
                 }
                 R.id.nav_reports -> {
-                    startActivity(Intent(this, ReportsActivity::class.java))
-                    finish()
+                    if (RoleManager.canAccessReports(currentUserRole)) {
+                        startActivity(Intent(this, ReportsActivity::class.java))
+                        finish()
+                    }
                     true
                 }
                 R.id.nav_settings -> {
-                    startActivity(Intent(this, SettingsActivity::class.java))
-                    finish()
+                    if (RoleManager.canAccessSettings(currentUserRole)) {
+                        startActivity(Intent(this, SettingsActivity::class.java))
+                        finish()
+                    }
                     true
                 }
                 else -> false

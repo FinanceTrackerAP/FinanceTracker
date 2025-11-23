@@ -9,6 +9,8 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
@@ -21,10 +23,14 @@ import com.dam.financetracker.R
 import com.dam.financetracker.databinding.ActivityReportsBinding
 import com.dam.financetracker.models.ReportPeriod
 import com.dam.financetracker.models.TransactionType
+import com.dam.financetracker.models.UserRole
+import com.dam.financetracker.repository.AuthRepository
 import com.dam.financetracker.ui.dashboard.DashboardActivity
 import com.dam.financetracker.ui.settings.SettingsActivity
 import com.dam.financetracker.ui.transaction.TransactionActivity
+import com.dam.financetracker.ui.transaction.TransactionHistoryActivity
 import com.dam.financetracker.utils.PdfGenerator
+import com.dam.financetracker.utils.RoleManager
 import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
@@ -46,6 +52,10 @@ class ReportsActivity : AppCompatActivity() {
     private val viewModel: ReportsViewModel by viewModels()
     private val currencyFormat = NumberFormat.getCurrencyInstance(Locale("es", "PE"))
     private val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+    
+    // HU-007 y HU-008: Control de permisos
+    private val authRepository = AuthRepository()
+    private var currentUserRole: UserRole = UserRole.OWNER
 
     // Variables temporales para el Rango de Fechas Personalizado
     private var rangeStartDate: Long? = null
@@ -79,14 +89,52 @@ class ReportsActivity : AppCompatActivity() {
         binding = ActivityReportsBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        setupViews()
-        setupChart()
-        observeViewModel()
-        setupBottomNavigation()
+        // HU-007 y HU-008: Obtener rol del usuario
+        lifecycleScope.launch {
+            val user = authRepository.getCurrentUser()
+            currentUserRole = user?.role ?: UserRole.OWNER
+            
+            setupViews()
+            setupChart()
+            observeViewModel()
+            setupBottomNavigation()
+            applyRoleBasedExportPermissions()
+            
+            // Actualizar el menú después de obtener el rol
+            invalidateOptionsMenu()
+        }
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        menuInflater.inflate(R.menu.menu_reports, menu)
+        return true
+    }
+    
+    override fun onPrepareOptionsMenu(menu: Menu?): Boolean {
+        // Solo mostrar el botón de logout para el rol ACCOUNTANT
+        menu?.findItem(R.id.action_logout)?.isVisible = (currentUserRole == UserRole.ACCOUNTANT)
+        return super.onPrepareOptionsMenu(menu)
+    }
+    
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_logout -> {
+                // Cerrar sesión
+                authRepository.signOut()
+                Toast.makeText(this, "Sesión cerrada", Toast.LENGTH_SHORT).show()
+                val intent = Intent(this, com.dam.financetracker.ui.auth.LoginActivity::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                startActivity(intent)
+                finish()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
     }
 
     private fun setupViews() {
         binding.apply {
+            setSupportActionBar(toolbar)
             toolbar.setNavigationOnClickListener { finish() }
 
             // Configurar filtros de período (1M, 3M, 1Y)
@@ -106,10 +154,24 @@ class ReportsActivity : AppCompatActivity() {
             }
 
             // NUEVO: Listener para Exportar a PDF (HU-006.2)
-            btnExportPdf.setOnClickListener { exportReportToPdf() }
+            btnExportPdf.setOnClickListener { 
+                // HU-007 y HU-008: Verificar permisos de exportación
+                if (RoleManager.canExportReports(currentUserRole)) {
+                    exportReportToPdf()
+                } else {
+                    Toast.makeText(this@ReportsActivity, "No tienes permisos para exportar reportes", Toast.LENGTH_SHORT).show()
+                }
+            }
 
             // NUEVO: Listener para Exportar a CSV
-            btnExportCsv.setOnClickListener { exportReportToCsv() }
+            btnExportCsv.setOnClickListener {
+                // HU-007 y HU-008: Verificar permisos de exportación
+                if (RoleManager.canExportReports(currentUserRole)) {
+                    exportReportToCsv()
+                } else {
+                    Toast.makeText(this@ReportsActivity, "No tienes permisos para exportar reportes", Toast.LENGTH_SHORT).show()
+                }
+            }
 
             // NUEVO: Listener para selector de Rango de Fechas Personalizado
             btnSelectDateRange.setOnClickListener {
@@ -471,6 +533,12 @@ class ReportsActivity : AppCompatActivity() {
         // Acceder al BottomNavigationView a través del include
         val bottomNav = findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottomNavigation)
 
+        // HU-007 y HU-008: Ocultar opciones según el rol
+        val menu = bottomNav?.menu
+        menu?.findItem(R.id.nav_home)?.isVisible = RoleManager.canAccessDashboard(currentUserRole)
+        menu?.findItem(R.id.nav_reports)?.isVisible = RoleManager.canAccessReports(currentUserRole)
+        menu?.findItem(R.id.nav_settings)?.isVisible = RoleManager.canAccessSettings(currentUserRole)
+
         // Marcar el ítem de Reportes como seleccionado
         bottomNav?.selectedItemId = R.id.nav_reports
 
@@ -482,9 +550,15 @@ class ReportsActivity : AppCompatActivity() {
                     true
                 }
                 R.id.nav_transactions -> {
-                    val intent = Intent(this, TransactionActivity::class.java)
-                    intent.putExtra(TransactionActivity.EXTRA_TRANSACTION_TYPE, TransactionType.INCOME.name)
-                    startActivity(intent)
+                    // Si puede crear, abrir formulario; si no, abrir historial
+                    if (RoleManager.canCreateTransactions(currentUserRole)) {
+                        val intent = Intent(this, TransactionActivity::class.java)
+                        intent.putExtra(TransactionActivity.EXTRA_TRANSACTION_TYPE, TransactionType.INCOME.name)
+                        startActivity(intent)
+                    } else {
+                        startActivity(Intent(this, TransactionHistoryActivity::class.java))
+                    }
+                    finish()
                     true
                 }
                 R.id.nav_reports -> {
@@ -492,8 +566,10 @@ class ReportsActivity : AppCompatActivity() {
                     true
                 }
                 R.id.nav_settings -> {
-                    startActivity(Intent(this, SettingsActivity::class.java))
-                    finish()
+                    if (RoleManager.canAccessSettings(currentUserRole)) {
+                        startActivity(Intent(this, SettingsActivity::class.java))
+                        finish()
+                    }
                     true
                 }
                 else -> false
@@ -505,5 +581,31 @@ class ReportsActivity : AppCompatActivity() {
         // Asegurar que Reportes quede seleccionado al volver
         val bottomNav = findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottomNavigation)
         bottomNav?.selectedItemId = R.id.nav_reports
+    }
+    
+    /**
+     * HU-007 y HU-008: Aplica permisos de exportación según el rol
+     * EMPLOYEE (Empleado): No puede acceder a reportes (esta pantalla no debería abrirse)
+     * ACCOUNTANT (Contador): SÍ puede exportar (PDF y CSV)
+     * OWNER (Propietario): SÍ puede exportar
+     */
+    private fun applyRoleBasedExportPermissions() {
+        val canExport = RoleManager.canExportReports(currentUserRole)
+        
+        binding.apply {
+            // HU-007: Ocultar botones de exportación para empleados
+            btnExportPdf.visibility = if (canExport) View.VISIBLE else View.GONE
+            btnExportCsv.visibility = if (canExport) View.VISIBLE else View.GONE
+            
+            // Mostrar mensaje si es empleado (no debería estar aquí)
+            if (currentUserRole == UserRole.EMPLOYEE) {
+                Toast.makeText(
+                    this@ReportsActivity,
+                    "Como empleado no tienes acceso a reportes",
+                    Toast.LENGTH_LONG
+                ).show()
+                finish() // Cerrar la actividad
+            }
+        }
     }
 }

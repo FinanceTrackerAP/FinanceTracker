@@ -5,8 +5,11 @@ import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.dam.financetracker.databinding.ActivityMainBinding
+import com.dam.financetracker.models.UserRole
 import com.dam.financetracker.repository.AuthRepository
 import com.dam.financetracker.ui.auth.LoginActivity
+import com.dam.financetracker.ui.dashboard.DashboardActivity
+import com.dam.financetracker.ui.reports.ReportsActivity
 import com.google.firebase.FirebaseApp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -36,11 +39,24 @@ class MainActivity : AppCompatActivity() {
 
             try {
                 if (authRepository.isUserLoggedIn()) {
-                    // Usuario autenticado - por ahora ir al login también
+                    // Usuario autenticado - redirigir según rol
                     binding.tvLoading.text = "Usuario autenticado..."
                     delay(1000)
-                    // TODO: Ir al Dashboard cuando lo creemos
-                    navigateToLogin()
+                    
+                    // HU-008: Redirigir según el rol del usuario
+                    val user = authRepository.getCurrentUser()
+                    val userRole = user?.role ?: UserRole.OWNER
+                    
+                    val intent = if (userRole == UserRole.ACCOUNTANT) {
+                        // Contador va directo a Reportes
+                        Intent(this@MainActivity, ReportsActivity::class.java)
+                    } else {
+                        // Owner y Empleado van al Dashboard
+                        Intent(this@MainActivity, DashboardActivity::class.java)
+                    }
+                    
+                    startActivity(intent)
+                    finish()
                 } else {
                     // Usuario no autenticado - ir al login
                     binding.tvLoading.text = "Redirigiendo..."

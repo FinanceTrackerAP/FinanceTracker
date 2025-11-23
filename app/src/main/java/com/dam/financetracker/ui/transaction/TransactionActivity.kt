@@ -1,6 +1,7 @@
 package com.dam.financetracker.ui.transaction
 
 import android.app.DatePickerDialog
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.ArrayAdapter
@@ -17,6 +18,9 @@ import com.dam.financetracker.models.DefaultExpenseCategories
 import com.dam.financetracker.models.DefaultIncomeCategories
 import com.dam.financetracker.models.Transaction
 import com.dam.financetracker.models.TransactionType
+import com.dam.financetracker.models.UserRole
+import com.dam.financetracker.repository.AuthRepository
+import com.dam.financetracker.utils.RoleManager
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
@@ -28,6 +32,9 @@ class TransactionActivity : AppCompatActivity() {
     // Usar TransactionViewModel para conectar con Firebase
     private val viewModel: TransactionViewModel by viewModels()
     // private val viewModel: LocalTransactionViewModel by viewModels()
+    
+    private val authRepository = AuthRepository()
+    private var currentUserRole: UserRole = UserRole.OWNER
 
     private val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
     private val currencyFormat = NumberFormat.getCurrencyInstance(Locale("es", "PE"))
@@ -43,10 +50,18 @@ class TransactionActivity : AppCompatActivity() {
         binding = ActivityTransactionBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        setupViews()
-        setupObservers()
-        handleIntent()
-        setupBottomNavigation()
+        // HU-007: Obtener rol del usuario antes de configurar vistas
+        lifecycleScope.launch {
+            val user = authRepository.getCurrentUser()
+            currentUserRole = user?.role ?: UserRole.OWNER
+            
+            setupViews()
+            setupObservers()
+            handleIntent()
+            setupBottomNavigation()
+            applyRoleBasedRestrictions()
+        }
+        
         // Evitar superposición con la barra de estado
         ViewCompat.setOnApplyWindowInsetsListener(binding.topBar.root) { v, insets ->
             val top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
@@ -288,6 +303,13 @@ class TransactionActivity : AppCompatActivity() {
     }
 
     private fun setupBottomNavigation() {
+        val menu = binding.bottomNavigation.root.menu
+        
+        // HU-007 y HU-008: Ocultar opciones según el rol
+        menu.findItem(com.dam.financetracker.R.id.nav_home)?.isVisible = RoleManager.canAccessDashboard(currentUserRole)
+        menu.findItem(com.dam.financetracker.R.id.nav_reports)?.isVisible = RoleManager.canAccessReports(currentUserRole)
+        menu.findItem(com.dam.financetracker.R.id.nav_settings)?.isVisible = RoleManager.canAccessSettings(currentUserRole)
+        
         // Mantener seleccionado el tab de Transacciones
         binding.bottomNavigation.root.selectedItemId = com.dam.financetracker.R.id.nav_transactions
         binding.bottomNavigation.root.setOnItemSelectedListener { item ->
@@ -296,7 +318,72 @@ class TransactionActivity : AppCompatActivity() {
                     finish() // volver a dashboard
                     true
                 }
+                com.dam.financetracker.R.id.nav_transactions -> true
+                com.dam.financetracker.R.id.nav_reports -> {
+                    if (RoleManager.canAccessReports(currentUserRole)) {
+                        startActivity(Intent(this, com.dam.financetracker.ui.reports.ReportsActivity::class.java))
+                        finish()
+                    }
+                    true
+                }
+                com.dam.financetracker.R.id.nav_settings -> {
+                    if (RoleManager.canAccessSettings(currentUserRole)) {
+                        startActivity(Intent(this, com.dam.financetracker.ui.settings.SettingsActivity::class.java))
+                        finish()
+                    }
+                    true
+                }
                 else -> true
+            }
+        }
+    }
+    
+    /**
+     * HU-007: Aplica restricciones según el rol del usuario
+     * EMPLOYEE (Empleado): SOLO puede registrar INGRESOS (ventas), NO puede registrar gastos
+     * ACCOUNTANT (Contador): No puede crear transacciones (esta pantalla no debería abrirse)
+     */
+    private fun applyRoleBasedRestrictions() {
+        when (currentUserRole) {
+            UserRole.EMPLOYEE -> {
+                // HU-007: Empleado SOLO puede registrar INGRESOS, NO gastos
+                if (!RoleManager.canCreateExpenses(currentUserRole)) {
+                    // Ocultar botón de Gastos
+                    binding.btnExpense.visibility = View.GONE
+                    
+                    // Forzar tipo INCOME
+                    viewModel.setTransactionType(TransactionType.INCOME)
+                    binding.btnIncome.isEnabled = false // No puede cambiar
+                    
+                    // Mostrar mensaje informativo
+                    Toast.makeText(
+                        this,
+                        "Como empleado, solo puedes registrar ventas e ingresos",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+            UserRole.ACCOUNTANT -> {
+                // HU-008: Contador no puede crear transacciones
+                if (!RoleManager.canCreateTransactions(currentUserRole)) {
+                    // Deshabilitar todos los campos
+                    binding.etAmount.isEnabled = false
+                    binding.etDescription.isEnabled = false
+                    binding.spinnerCategory.isEnabled = false
+                    binding.etDate.isEnabled = false
+                    binding.btnSave.isEnabled = false
+                    binding.btnIncome.isEnabled = false
+                    binding.btnExpense.isEnabled = false
+                    
+                    Toast.makeText(
+                        this,
+                        "Como contador, solo puedes consultar transacciones",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+            UserRole.OWNER -> {
+                // Propietario tiene acceso completo, no hay restricciones
             }
         }
     }

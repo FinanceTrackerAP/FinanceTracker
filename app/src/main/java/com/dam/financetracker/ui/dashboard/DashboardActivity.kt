@@ -20,6 +20,8 @@ import com.dam.financetracker.ui.transaction.TransactionViewModel
 import com.dam.financetracker.ui.settings.SettingsActivity // Importar SettingsActivity
 import com.dam.financetracker.ui.category.CategoryActivity // Aunque no se usa directamente, se mantiene la importación si fuera necesario en el futuro
 import com.dam.financetracker.ui.reports.ReportsActivity
+import com.dam.financetracker.models.UserRole
+import com.dam.financetracker.utils.RoleManager
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.*
@@ -33,6 +35,9 @@ class DashboardActivity : AppCompatActivity() {
     private lateinit var transactionAdapter: TransactionAdapter
 
     private val currencyFormat = NumberFormat.getCurrencyInstance(Locale("es", "PE"))
+    
+    // HU-007: Variable para almacenar el rol del usuario
+    private var currentUserRole: UserRole = UserRole.OWNER
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,7 +59,14 @@ class DashboardActivity : AppCompatActivity() {
         loadUserInfo()
         setupViews()
         setupObservers()
-        setupBottomNavigation()
+        
+        // HU-007: Configurar navegación según el rol del usuario
+        lifecycleScope.launch {
+            val user = authRepository.getCurrentUser()
+            currentUserRole = user?.role ?: UserRole.OWNER
+            setupBottomNavigation()
+            applyRoleBasedVisibility()
+        }
 
         transactionViewModel.refreshTransactions()
     }
@@ -67,23 +79,59 @@ class DashboardActivity : AppCompatActivity() {
             when (item.itemId) {
                 com.dam.financetracker.R.id.nav_home -> true
                 com.dam.financetracker.R.id.nav_transactions -> {
-                    // Abrir actividad de transacciones para registro
-                    openTransactionActivity(com.dam.financetracker.models.TransactionType.INCOME)
+                    // HU-007: Solo si puede crear transacciones
+                    if (RoleManager.canCreateTransactions(currentUserRole)) {
+                        openTransactionActivity(com.dam.financetracker.models.TransactionType.INCOME)
+                    } else {
+                        // HU-008: Contador solo puede ver
+                        startActivity(Intent(this, TransactionHistoryActivity::class.java))
+                    }
                     true
                 }
                 com.dam.financetracker.R.id.nav_reports -> {
-                    // NAVEGACIÓN HU-004: Ir a ReportsActivity
-                    startActivity(Intent(this, com.dam.financetracker.ui.reports.ReportsActivity::class.java))
+                    // HU-007: Verificar si puede acceder a reportes
+                    if (RoleManager.canAccessReports(currentUserRole)) {
+                        startActivity(Intent(this, com.dam.financetracker.ui.reports.ReportsActivity::class.java))
+                    }
                     true
                 }
                 com.dam.financetracker.R.id.nav_settings -> {
-                    // NAVEGACIÓN HU-003: Ir a SettingsActivity (Ajustes/Perfil)
-                    startActivity(Intent(this, SettingsActivity::class.java))
+                    // HU-007: Verificar si puede acceder a ajustes
+                    if (RoleManager.canAccessSettings(currentUserRole)) {
+                        startActivity(Intent(this, SettingsActivity::class.java))
+                    }
                     true
                 }
                 else -> true
             }
         }
+    }
+    
+    /**
+     * HU-007: Aplica la visibilidad de elementos según el rol del usuario
+     * EMPLOYEE (Empleado): Solo ve Inicio y Transacciones
+     * ACCOUNTANT (Contador): Solo ve Inicio, Transacciones (lectura) y Reportes
+     * OWNER (Propietario): Ve todo
+     */
+    private fun applyRoleBasedVisibility() {
+        val menu = binding.bottomNavigation.bottomNavigation.menu
+        
+        // HU-008: Ocultar Inicio para Contadores (solo 3 pantallas)
+        val homeItem = menu.findItem(com.dam.financetracker.R.id.nav_home)
+        homeItem?.isVisible = RoleManager.canAccessDashboard(currentUserRole)
+        
+        // HU-007: Ocultar Reportes para Empleados
+        val reportsItem = menu.findItem(com.dam.financetracker.R.id.nav_reports)
+        reportsItem?.isVisible = RoleManager.canAccessReports(currentUserRole)
+        
+        // HU-007: Ocultar Ajustes para Empleados
+        // HU-008: Contador SÍ puede ver Ajustes
+        val settingsItem = menu.findItem(com.dam.financetracker.R.id.nav_settings)
+        settingsItem?.isVisible = RoleManager.canAccessSettings(currentUserRole)
+        
+        // Actualizar título según el rol
+        val roleName = RoleManager.getRoleName(currentUserRole)
+        binding.topBar.tvTitle.text = "General - $roleName"
     }
 
     private fun setupRecyclerView() {
