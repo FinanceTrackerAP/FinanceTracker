@@ -3,6 +3,7 @@ package com.dam.financetracker.repository
 import com.dam.financetracker.models.MonthlyData
 import com.dam.financetracker.models.ReportData
 import com.dam.financetracker.models.ReportPeriod
+import com.dam.financetracker.models.Transaction
 import com.dam.financetracker.models.TrendData
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -296,6 +297,97 @@ class ReportsRepository {
 
         val previousEndDate = calendar.timeInMillis
         return Pair(previousStartDate, previousEndDate)
+    }
+
+    /**
+     * Obtiene transacciones para un período personalizado (rango de fechas específico)
+     * Devuelve una lista de objetos Transaction
+     */
+    suspend fun getTransactionsForCustomPeriod(startDate: Long, endDate: Long): List<Transaction> {
+        return try {
+            val currentUserId = firebaseAuth.currentUser?.uid ?: return emptyList()
+
+            val transactionsData = getTransactionsForPeriod(currentUserId, startDate, endDate)
+
+            // Convertir Map a objetos Transaction
+            transactionsData.mapNotNull { data ->
+                try {
+                    Transaction(
+                        id = data["id"] as? String ?: "",
+                        businessId = data["businessId"] as? String ?: "",
+                        userId = data["userId"] as? String ?: "",
+                        type = com.dam.financetracker.models.TransactionType.valueOf(
+                            data["type"] as? String ?: "INCOME"
+                        ),
+                        amount = (data["amount"] as? Number)?.toDouble() ?: 0.0,
+                        description = data["description"] as? String ?: "",
+                        category = data["category"] as? String ?: "",
+                        date = (data["date"] as? Number)?.toLong() ?: System.currentTimeMillis()
+                    )
+                } catch (e: Exception) {
+                    android.util.Log.e("ReportsRepository", "Error parsing transaction: ${e.message}")
+                    null
+                }
+            }.sortedByDescending { it.date }
+
+        } catch (e: Exception) {
+            android.util.Log.e("ReportsRepository", "Error in getTransactionsForCustomPeriod: ${e.message}")
+            emptyList()
+        }
+    }
+
+    /**
+     * Obtiene datos de tendencias para un período personalizado
+     * Agrupa las transacciones por día para mostrar en el gráfico
+     */
+    suspend fun getTrendDataForCustomPeriod(startDate: Long, endDate: Long): TrendData {
+        return try {
+            val currentUserId = firebaseAuth.currentUser?.uid ?: return TrendData()
+
+            val transactionsData = getTransactionsForPeriod(currentUserId, startDate, endDate)
+
+            if (transactionsData.isEmpty()) {
+                return TrendData()
+            }
+
+            // Agrupar por día
+            val dayFormat = SimpleDateFormat("dd/MM", Locale.getDefault())
+            val calendar = Calendar.getInstance()
+            val dailyData = mutableMapOf<String, Triple<Float, Float, Long>>() // día -> (ingresos, gastos, timestamp)
+
+            transactionsData.forEach { transaction ->
+                val date = (transaction["date"] as? Long) ?: return@forEach
+                val dayKey = dayFormat.format(Date(date))
+                val amount = ((transaction["amount"] as? Number)?.toDouble() ?: 0.0).toFloat()
+                val type = transaction["type"] as? String ?: "INCOME"
+
+                val (currentIncome, currentExpense, _) = dailyData[dayKey] ?: Triple(0f, 0f, date)
+
+                if (type == "INCOME") {
+                    dailyData[dayKey] = Triple(currentIncome + amount, currentExpense, date)
+                } else {
+                    dailyData[dayKey] = Triple(currentIncome, currentExpense + amount, date)
+                }
+            }
+
+            // Convertir a lista de MonthlyData (usando días en lugar de meses)
+            val monthlyDataList = dailyData.map { (day, values) ->
+                calendar.timeInMillis = values.third
+                com.dam.financetracker.models.MonthlyData(
+                    month = day,
+                    monthNumber = calendar.get(Calendar.MONTH) + 1,
+                    year = calendar.get(Calendar.YEAR),
+                    income = values.first,
+                    expense = values.second
+                )
+            }.sortedBy { it.monthNumber } // Ordenar por fecha
+
+            TrendData(monthlyDataList = monthlyDataList)
+
+        } catch (e: Exception) {
+            android.util.Log.e("ReportsRepository", "Error in getTrendDataForCustomPeriod: ${e.message}")
+            TrendData()
+        }
     }
 
 }

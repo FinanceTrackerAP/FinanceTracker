@@ -1,11 +1,13 @@
 package com.dam.financetracker.utils
 
+import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.pdf.PdfDocument
 import android.os.Build
 import android.os.Environment
+import android.provider.MediaStore
 import android.view.View
 import android.widget.Toast
 import java.io.File
@@ -57,25 +59,43 @@ object PdfGenerator {
         val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
         val filename = "${filenameBase}_$timeStamp.pdf"
 
-        val file = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            // Para Android 10+ (API 29+), las apps usan MediaStore o Scoped Storage.
-            // Usamos el directorio de Descargas externo a la app (para mejor compatibilidad con otras apps).
-            // NOTA: Para API 30+, getExternalStoragePublicDirectory está obsoleto, se usa MediaStore o getExternalFilesDir
-            File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), filename)
-        } else {
-            // Para dispositivos antiguos (API < 29)
-            @Suppress("DEPRECATION")
-            File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), filename)
-        }
-
         try {
-            val fos = FileOutputStream(file)
-            document.writeTo(fos)
-            document.close()
-            fos.close()
+            // USAR MediaStore API para Android 10+ (API 29+)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val contentValues = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
+                    put(MediaStore.MediaColumns.MIME_TYPE, "application/pdf")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                }
 
-            Toast.makeText(context, "PDF guardado en: ${file.absolutePath}", Toast.LENGTH_LONG).show()
+                val resolver = context.contentResolver
+                val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+
+                if (uri != null) {
+                    resolver.openOutputStream(uri)?.use { outputStream ->
+                        document.writeTo(outputStream)
+                    }
+                    document.close()
+                    Toast.makeText(context, "PDF guardado exitosamente en Downloads/$filename", Toast.LENGTH_LONG).show()
+                } else {
+                    document.close()
+                    Toast.makeText(context, "Error al crear el archivo PDF", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                // Método legacy para Android 9 y anteriores
+                @Suppress("DEPRECATION")
+                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                val file = File(downloadsDir, filename)
+
+                val fos = FileOutputStream(file)
+                document.writeTo(fos)
+                document.close()
+                fos.close()
+
+                Toast.makeText(context, "PDF guardado en Downloads/$filename", Toast.LENGTH_LONG).show()
+            }
         } catch (e: IOException) {
+            document.close()
             e.printStackTrace()
             Toast.makeText(context, "Error al guardar PDF: ${e.message}", Toast.LENGTH_LONG).show()
         }
@@ -85,12 +105,18 @@ object PdfGenerator {
      * Convierte una vista (incluyendo su contenido desplazable si es ViewGroup) a un solo Bitmap.
      */
     private fun viewToBitmap(view: View): Bitmap {
+        // Forzar medición completa de la vista
+        view.measure(
+            View.MeasureSpec.makeMeasureSpec(view.width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        )
+        
         val totalHeight = if (view is ViewGroup && view.childCount > 0) {
-            // Si es un contenedor con hijos (como NestedScrollView), toma la altura del primer hijo.
-            view.getChildAt(0).height
+            // Si es un contenedor con hijos (como NestedScrollView), toma la altura medida del primer hijo.
+            view.getChildAt(0).measuredHeight
         } else {
-            // Si es una vista simple, toma su propia altura.
-            view.height
+            // Si es una vista simple, toma su propia altura medida.
+            view.measuredHeight
         }
 
         val bitmap = Bitmap.createBitmap(view.width, totalHeight, Bitmap.Config.ARGB_8888)
@@ -101,6 +127,10 @@ object PdfGenerator {
         } else {
             canvas.drawColor(android.graphics.Color.WHITE)
         }
+        
+        // Layoutear la vista con las medidas correctas
+        view.layout(0, 0, view.width, totalHeight)
+        
         // Traducir la vista al canvas para capturar su contenido completo
         view.draw(canvas)
         return bitmap

@@ -3,6 +3,7 @@
     <!-- Colores principales del diseño -->
     <color name="primary_purple">#8E4EC6</color>
     <color name="primary_purple_dark">#7B3FAA</color>
+    <color name="light_purple">#F3E5F5</color>
     <color name="accent_yellow">#FFD700</color>
 
     <!-- Colores de fondo -->

@@ -2,6 +2,7 @@ package com.dam.financetracker.ui.reports
 
 import android.Manifest
 import android.app.DatePickerDialog
+import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
@@ -9,6 +10,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.provider.MediaStore
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
@@ -60,28 +62,10 @@ class ReportsActivity : AppCompatActivity() {
     // Variables temporales para el Rango de Fechas Personalizado
     private var rangeStartDate: Long? = null
     private var rangeEndDate: Long? = null
-
-    // Launcher para la solicitud de permisos de escritura (necesario antes de Android 13)
-    private val requestPermissionLauncher: ActivityResultLauncher<String> =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
-            if (isGranted) {
-                // Permiso concedido, generar PDF
-                generatePdf()
-            } else {
-                Toast.makeText(this, "Permiso de almacenamiento denegado. No se puede guardar el PDF.", Toast.LENGTH_LONG).show()
-            }
-        }
-
-    // Launcher para la solicitud de permisos de escritura para CSV
-    private val requestPermissionCsvLauncher: ActivityResultLauncher<String> =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
-            if (isGranted) {
-                // Permiso concedido, generar CSV
-                generateCsv()
-            } else {
-                Toast.makeText(this, "Permiso de almacenamiento denegado. No se puede guardar el CSV.", Toast.LENGTH_LONG).show()
-            }
-        }
+    
+    // Adapter para transacciones personalizadas
+    private lateinit var customTransactionAdapter: com.dam.financetracker.ui.dashboard.TransactionAdapter
+    private var isGeneratingCustomReport = false
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -153,26 +137,6 @@ class ReportsActivity : AppCompatActivity() {
                 updatePeriodButtons(ReportPeriod.ONE_YEAR)
             }
 
-            // NUEVO: Listener para Exportar a PDF (HU-006.2)
-            btnExportPdf.setOnClickListener { 
-                // HU-007 y HU-008: Verificar permisos de exportación
-                if (RoleManager.canExportReports(currentUserRole)) {
-                    exportReportToPdf()
-                } else {
-                    Toast.makeText(this@ReportsActivity, "No tienes permisos para exportar reportes", Toast.LENGTH_SHORT).show()
-                }
-            }
-
-            // NUEVO: Listener para Exportar a CSV
-            btnExportCsv.setOnClickListener {
-                // HU-007 y HU-008: Verificar permisos de exportación
-                if (RoleManager.canExportReports(currentUserRole)) {
-                    exportReportToCsv()
-                } else {
-                    Toast.makeText(this@ReportsActivity, "No tienes permisos para exportar reportes", Toast.LENGTH_SHORT).show()
-                }
-            }
-
             // NUEVO: Listener para selector de Rango de Fechas Personalizado
             btnSelectDateRange.setOnClickListener {
                 // LLAMADA A LA LÓGICA DE SELECCIÓN DE RANGO DE DOS PASOS
@@ -181,11 +145,23 @@ class ReportsActivity : AppCompatActivity() {
 
             // NUEVO: Listener para Generar Reporte (para rangos personalizados)
             btnGenerateReport.setOnClickListener {
-                Toast.makeText(this@ReportsActivity, "Generando reporte para período personalizado...", Toast.LENGTH_SHORT).show()
+                if (rangeStartDate != null && rangeEndDate != null) {
+                    // Generar PDF con reporte personalizado
+                    generateCustomReportPdf(rangeStartDate!!, rangeEndDate!!)
+                } else {
+                    Toast.makeText(this@ReportsActivity, "Por favor selecciona un rango de fechas primero", Toast.LENGTH_SHORT).show()
+                }
             }
 
 
             updatePeriodButtons(ReportPeriod.ONE_MONTH)
+        }
+        
+        // Configurar RecyclerView para transacciones personalizadas
+        customTransactionAdapter = com.dam.financetracker.ui.dashboard.TransactionAdapter { /* No hacer nada */ }
+        binding.rvCustomTransactions.apply {
+            layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this@ReportsActivity)
+            adapter = customTransactionAdapter
         }
     }
 
@@ -400,96 +376,48 @@ class ReportsActivity : AppCompatActivity() {
     }
 
     /**
-     * Lógica principal para Exportar a PDF (HU-006.2)
+     * Genera un PDF con reporte personalizado para un rango de fechas
      */
-    private fun exportReportToPdf() {
-        val reportData = viewModel.reportData.value
-        val trendData = viewModel.trendData.value
-
-        if (reportData.totalIncome == 0.0 && trendData.monthlyDataList.isEmpty()) {
-            Toast.makeText(this, "No hay datos para exportar.", Toast.LENGTH_SHORT).show()
-            return
-        }
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R && ContextCompat.checkSelfPermission(
-                this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-        } else {
-            generatePdf()
-        }
-    }
-
-    /**
-     * Lógica principal para Exportar a CSV (Nueva función)
-     */
-    private fun exportReportToCsv() {
-        val reportData = viewModel.reportData.value
-        val trendData = viewModel.trendData.value
-
-        if (reportData.totalIncome == 0.0 && trendData.monthlyDataList.isEmpty()) {
-            Toast.makeText(this, "No hay datos para exportar.", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R && ContextCompat.checkSelfPermission(
-                this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissionCsvLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-        } else {
-            generateCsv()
-        }
-    }
-
-    /**
-     * Función que ejecuta la generación real del PDF llamando a la clase utilitaria.
-     */
-    private fun generatePdf() {
-        val nestedScrollView = binding.root.findViewById<androidx.core.widget.NestedScrollView>(R.id.contentScrollView)
-        if (nestedScrollView != null) {
-            PdfGenerator.generatePdfFromView(
-                this,
-                nestedScrollView,
-                "ReporteFinanciero_${viewModel.selectedPeriod.value.name}"
-            )
-        } else {
-            Toast.makeText(this, "Error: No se pudo encontrar la vista de contenido para exportar.", Toast.LENGTH_LONG).show()
-        }
-    }
-
-    /**
-     * Función que genera el contenido CSV y lo guarda, y luego intenta abrirlo.
-     */
-    private fun generateCsv() {
+    private fun generateCustomReportPdf(startDate: Long, endDate: Long) {
         lifecycleScope.launch {
             try {
-                // LLAMADA AL MÉTODO PÚBLICO DEL VIEWMODEL
-                val csvContent = viewModel.getCsvForCurrentPeriod()
-
-                if (csvContent.isBlank()) {
-                    Toast.makeText(this@ReportsActivity, "No se encontraron transacciones para exportar.", Toast.LENGTH_SHORT).show()
+                binding.progressBar.visibility = View.VISIBLE
+                Toast.makeText(this@ReportsActivity, "Generando PDF con transacciones...", Toast.LENGTH_SHORT).show()
+                
+                // Cargar transacciones del período
+                val repository = com.dam.financetracker.repository.ReportsRepository()
+                val transactions = repository.getTransactionsForCustomPeriod(startDate, endDate)
+                
+                if (transactions.isEmpty()) {
+                    Toast.makeText(this@ReportsActivity, "No hay transacciones en este período", Toast.LENGTH_SHORT).show()
+                    binding.progressBar.visibility = View.GONE
                     return@launch
                 }
-
-                val fileName = "Transacciones_${viewModel.selectedPeriod.value.name}_${SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())}.csv"
-
-                @Suppress("DEPRECATION")
-                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                val file = File(downloadsDir, fileName)
-
-                FileOutputStream(file).use { out ->
-                    out.write(csvContent.toByteArray(Charsets.UTF_8))
-                }
-
-                Toast.makeText(this@ReportsActivity, "CSV guardado exitosamente en: Downloads/$fileName", Toast.LENGTH_LONG).show()
-
-                // SOLUCIÓN PARA ABRIR CSV: Lanzar Intent
-                val fileUri = Uri.fromFile(file)
-                val intent = Intent(Intent.ACTION_VIEW).apply {
-                    setDataAndType(fileUri, "text/csv")
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                startActivity(intent)
-
+                
+                // Cargar transacciones en el adapter
+                customTransactionAdapter.submitList(transactions)
+                
+                // Esperar a que el RecyclerView se renderice completamente
+                binding.rvCustomTransactions.postDelayed({
+                    try {
+                        // Generar PDF con todo el contenido
+                        val startText = dateFormat.format(Date(startDate))
+                        val endText = dateFormat.format(Date(endDate))
+                        val fileName = "ReportePersonalizado_${startText.replace("/", "")}_${endText.replace("/", "")}"
+                        
+                        val nestedScrollView = binding.contentScrollView
+                        if (nestedScrollView != null) {
+                            PdfGenerator.generatePdfFromView(this@ReportsActivity, nestedScrollView, fileName)
+                        }
+                        
+                    } finally {
+                        binding.progressBar.visibility = View.GONE
+                    }
+                }, 800)  // Dar tiempo suficiente para que se renderice todo
+                
             } catch (e: Exception) {
-                Toast.makeText(this@ReportsActivity, "Error al guardar CSV: ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@ReportsActivity, "Error al generar reporte: ${e.message}", Toast.LENGTH_LONG).show()
+                binding.progressBar.visibility = View.GONE
                 e.printStackTrace()
             }
         }
@@ -586,26 +514,18 @@ class ReportsActivity : AppCompatActivity() {
     /**
      * HU-007 y HU-008: Aplica permisos de exportación según el rol
      * EMPLOYEE (Empleado): No puede acceder a reportes (esta pantalla no debería abrirse)
-     * ACCOUNTANT (Contador): SÍ puede exportar (PDF y CSV)
+     * ACCOUNTANT (Contador): SÍ puede exportar (PDF)
      * OWNER (Propietario): SÍ puede exportar
      */
     private fun applyRoleBasedExportPermissions() {
-        val canExport = RoleManager.canExportReports(currentUserRole)
-        
-        binding.apply {
-            // HU-007: Ocultar botones de exportación para empleados
-            btnExportPdf.visibility = if (canExport) View.VISIBLE else View.GONE
-            btnExportCsv.visibility = if (canExport) View.VISIBLE else View.GONE
-            
-            // Mostrar mensaje si es empleado (no debería estar aquí)
-            if (currentUserRole == UserRole.EMPLOYEE) {
-                Toast.makeText(
-                    this@ReportsActivity,
-                    "Como empleado no tienes acceso a reportes",
-                    Toast.LENGTH_LONG
-                ).show()
-                finish() // Cerrar la actividad
-            }
+        // Mostrar mensaje si es empleado (no debería estar aquí)
+        if (currentUserRole == UserRole.EMPLOYEE) {
+            Toast.makeText(
+                this@ReportsActivity,
+                "Como empleado no tienes acceso a reportes",
+                Toast.LENGTH_LONG
+            ).show()
+            finish() // Cerrar la actividad
         }
     }
 }

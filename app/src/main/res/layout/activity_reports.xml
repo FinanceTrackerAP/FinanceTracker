@@ -244,6 +244,32 @@
                 android:layout_height="300dp"
                 android:layout_marginTop="16dp" />
 
+            <!-- Historial de transacciones visible -->
+            <LinearLayout
+                android:id="@+id/transactionsContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="24dp"
+                    android:layout_marginBottom="12dp"
+                    android:text="Transacciones del Período"
+                    android:textColor="@color/primary_text"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rvCustomTransactions"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:nestedScrollingEnabled="false" />
+
+            </LinearLayout>
+
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -276,67 +302,18 @@
                 app:cornerRadius="12dp"
                 app:strokeColor="@color/divider_color" />
 
-            <com.google.android.material.textfield.TextInputLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:layout_marginBottom="24dp"
-                android:hint="@string/report_period_previous_title"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
-
-                <AutoCompleteTextView
-                    android:id="@+id/actvPeriodoAnterior"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:inputType="none"
-                    android:text="@string/report_period_previous_placeholder" />
-
-            </com.google.android.material.textfield.TextInputLayout>
-
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnGenerateReport"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
-                android:layout_marginBottom="16dp"
-                android:text="@string/report_generate"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="80dp"
+                android:text="Generar Reporte en PDF"
                 android:textColor="@color/white"
                 android:backgroundTint="@color/primary_purple"
-                app:cornerRadius="12dp" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:weightSum="2"
-                android:layout_marginBottom="80dp">
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnExportPdf"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                    android:layout_width="0dp"
-                    android:layout_height="56dp"
-                    android:layout_marginEnd="8dp"
-                    android:layout_weight="1"
-                    android:text="@string/report_export_pdf"
-                    android:textColor="@color/primary_purple"
-                    app:cornerRadius="12dp"
-                    app:strokeColor="@color/primary_purple"
-                    app:strokeWidth="1dp" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnExportCsv"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                    android:layout_width="0dp"
-                    android:layout_height="56dp"
-                    android:layout_marginStart="8dp"
-                    android:layout_weight="1"
-                    android:text="@string/report_export_csv"
-                    android:textColor="@color/primary_purple"
-                    app:cornerRadius="12dp"
-                    app:strokeColor="@color/primary_purple"
-                    app:strokeWidth="1dp" />
-
-            </LinearLayout>
+                app:cornerRadius="12dp"
+                app:icon="@drawable/ic_download"
+                app:iconGravity="textStart" />
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
